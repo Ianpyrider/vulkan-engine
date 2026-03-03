@@ -1,0 +1,2 @@
+^C:\USERS\IAN\SOURCE\REPOS\VULKAN\VULKANRENDERER\SHADERS\SHADER.SLANG
+"C:/VulkanSDK/1.4.321.1/bin/slangc.exe" "C:\Users\Ian\source\repos\Vulkan\VulkanRenderer\Shaders\shader.slang" -target spirv -profile spirv_1_4 -emit-spirv-directly -fvk-use-entrypoint-name -entry vertMain -entry fragMain -o "C:\Users\Ian\source\repos\Vulkan\x64\Debug\slang.spv"
