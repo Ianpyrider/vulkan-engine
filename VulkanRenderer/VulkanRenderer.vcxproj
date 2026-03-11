@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|Win32">
@@ -76,7 +76,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions);GLFW_DLL</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>$(VULKAN_SDK)\Include;$(SolutionDir)VulkanCore\include;$(SolutionDir)Lib\include;$(SolutionDir)VulkanCore</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(VULKAN_SDK)\Include;$(SolutionDir)VulkanCore\include;$(SolutionDir)Lib\include;$(SolutionDir)VulkanCore;$(ProjectDir)Headers</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp20</LanguageStandard>
     </ClCompile>
     <Link>
@@ -97,7 +97,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;%(PreprocessorDefinitions);GLFW_DLL</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>$(VULKAN_SDK)\Include;$(SolutionDir)VulkanCore\include;$(SolutionDir)Lib\include;$(SolutionDir)VulkanCore</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(VULKAN_SDK)\Include;$(SolutionDir)VulkanCore\include;$(SolutionDir)Lib\include;$(SolutionDir)VulkanCore;$(ProjectDir)Headers</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp20</LanguageStandard>
     </ClCompile>
     <Link>
@@ -118,7 +118,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions);GLFW_DLL</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>$(VULKAN_SDK)\Include;$(SolutionDir)VulkanCore\include;$(SolutionDir)Lib\include;$(SolutionDir)VulkanCore</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(VULKAN_SDK)\Include;$(SolutionDir)VulkanCore\include;$(SolutionDir)Lib\include;$(SolutionDir)VulkanCore;$(ProjectDir)Headers</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp20</LanguageStandard>
     </ClCompile>
     <Link>
@@ -139,7 +139,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions);GLFW_DLL</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <AdditionalIncludeDirectories>$(VULKAN_SDK)\Include;$(SolutionDir)VulkanCore\include;$(SolutionDir)Lib\include;$(SolutionDir)VulkanCore</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(VULKAN_SDK)\Include;$(SolutionDir)VulkanCore\include;$(SolutionDir)Lib\include;$(SolutionDir)VulkanCore;$(ProjectDir)Headers</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp20</LanguageStandard>
     </ClCompile>
     <Link>
@@ -155,7 +155,12 @@
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="Source\VulkanRenderer.cpp" />
+    <ClCompile Include="Source\GraphicsPipeline.cpp" />
+    <ClCompile Include="Source\main.cpp" />
+    <ClCompile Include="Source\Renderer.cpp" />
+    <ClCompile Include="Source\VulkanContext.cpp" />
+    <ClCompile Include="Source\VulkanApplication.cpp" />
+    <ClCompile Include="Source\SwapChainManager.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\VulkanCore\VulkanCore.vcxproj">
@@ -179,6 +184,14 @@
       <Message Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Copiling Slang Shader: %(Filename)</Message>
       <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(TargetDir)slang.spv</Outputs>
     </CustomBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="Headers\GraphicsPipeline.h" />
+    <ClInclude Include="Headers\VulkanApplication.h" />
+    <ClInclude Include="Headers\VulkanContext.h" />
+    <ClInclude Include="Headers\SwapChainManager.h" />
+    <ClInclude Include="Headers\VulkanInclude.h" />
+    <ClInclude Include="Headers\Renderer.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
