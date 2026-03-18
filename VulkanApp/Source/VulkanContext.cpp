@@ -7,6 +7,7 @@
 #include <GLFW/glfw3native.h>
 
 #include "Types.h"
+#include "EngineConfig.h"
 
 #include <iostream>
 #include <cstdlib>
@@ -25,8 +26,9 @@ namespace {
     constexpr bool enableValidationLayers = true;
     #endif
 
-    std::vector<const char*> requiredDeviceExtension = {
-        vk::KHRSwapchainExtensionName
+    std::vector<const char*> requiredDeviceExtensions = {
+        vk::KHRSwapchainExtensionName,
+        vk::EXTHostQueryResetExtensionName,
     };
 }
 
@@ -81,6 +83,7 @@ VulkanContext::VulkanContext(GLFWwindow* window) {
     pickPhysicalDevice();
     createLogicalDevice();
     createVMA();
+    createQueryPools();
 }
 
 VulkanContext::~VulkanContext() {
@@ -185,7 +188,7 @@ void VulkanContext::pickPhysicalDevice() { // Just checks if physical device is 
             isSuitable = isSuitable && (qfpIter != queueFamilies.end());
             auto extensions = device.enumerateDeviceExtensionProperties();
             bool found = true;
-            for (auto const& extension : requiredDeviceExtension) {
+            for (auto const& extension : requiredDeviceExtensions) {
                 auto extensionIter = std::ranges::find_if(extensions, [extension](auto const& ext) {return strcmp(ext.extensionName, extension) == 0; });
                 found = found && extensionIter != extensions.end();
             }
@@ -248,14 +251,20 @@ void VulkanContext::createLogicalDevice() {
     }
 
     // query for Vulkan 1.3 features
-    vk::StructureChain<vk::PhysicalDeviceFeatures2, vk::PhysicalDeviceVulkan11Features, vk::PhysicalDeviceVulkan13Features, vk::PhysicalDeviceExtendedDynamicStateFeaturesEXT> featureChain = {
-        {},         // vk::PhysicalDeviceFeatures2
-        {.shaderDrawParameters = true }, // Features from vulkan 1.1
+    vk::StructureChain<
+        vk::PhysicalDeviceFeatures2, 
+        vk::PhysicalDeviceVulkan11Features, 
+        vk::PhysicalDeviceVulkan12Features,
+        vk::PhysicalDeviceVulkan13Features, 
+        vk::PhysicalDeviceExtendedDynamicStateFeaturesEXT> featureChain = {
+        {},                              // vk::PhysicalDeviceFeatures2
+        { .shaderDrawParameters = true }, // Vulkan 1.1 features
+        { .hostQueryReset = true },      // Vulkan 1.2 features
         {
             .synchronization2 = true,
-            .dynamicRendering = true
-        },           // vk::PhysicalDeviceVulkan13Features
-        {.extendedDynamicState = true}        // vk::PhysicalDeviceExtendedDynamicStateFeaturesEXT
+            .dynamicRendering = true,
+        },                               // Vulkan 1.3 features
+        { .extendedDynamicState = true}, // Dynamic State Extension features
     };
 
     // create a Device
@@ -264,8 +273,8 @@ void VulkanContext::createLogicalDevice() {
     vk::DeviceCreateInfo      deviceCreateInfo{ .pNext = &featureChain.get<vk::PhysicalDeviceFeatures2>(),
                                                .queueCreateInfoCount = 1,
                                                .pQueueCreateInfos = &deviceQueueCreateInfo,
-                                               .enabledExtensionCount = static_cast<uint32_t>(requiredDeviceExtension.size()),
-                                               .ppEnabledExtensionNames = requiredDeviceExtension.data() };
+                                               .enabledExtensionCount = static_cast<uint32_t>(requiredDeviceExtensions.size()),
+                                               .ppEnabledExtensionNames = requiredDeviceExtensions.data() };
 
     device = vk::raii::Device(physicalDevice, deviceCreateInfo);
     graphicsQueue = vk::raii::Queue(device, graphicsIndex, 0);
@@ -310,4 +319,57 @@ AllocatedBuffer VulkanContext::createVmaBuffer(VkDeviceSize size) {
     vmaCreateBuffer(allocator, &bufferInfo, &allocInfo, &buffer, &allocation, &info);
 
     return { buffer, allocation, info };
+}
+
+void VulkanContext::createQueryPools() {
+    vk::PhysicalDeviceLimits device_limits = physicalDevice.getProperties().limits;
+    if (device_limits.timestampPeriod == 0)
+    {
+        throw std::runtime_error{ "The selected device does not support timestamp queries!" };
+    }
+
+    if (!device_limits.timestampComputeAndGraphics)
+    {
+        // Check if the graphics queue used in this sample supports time stamps
+        vk::QueueFamilyProperties graphics_queue_family_properties = physicalDevice.getQueueFamilyProperties()[graphicsIndex];
+        if (graphics_queue_family_properties.timestampValidBits == 0)
+        {
+            throw std::runtime_error{ "The selected graphics queue family does not support timestamp queries!" };
+        }
+    }
+
+    timestamps.resize(EngineConfig::NUM_TIMESTAMPS);
+
+    vk::QueryPoolCreateInfo timestampPoolInfo;
+    timestampPoolInfo.sType = vk::StructureType::eQueryPoolCreateInfo;
+    timestampPoolInfo.queryType = vk::QueryType::eTimestamp;
+    timestampPoolInfo.queryCount = static_cast<uint32_t>(timestamps.size());
+
+    timestampQueryPool = device.createQueryPool(timestampPoolInfo);
+}
+
+void VulkanContext::resetQueryPool(uint32_t frameIndex) {
+    uint32_t startIndex = frameIndex * EngineConfig::TIMESTAMPS_PER_FRAME;
+    (*device).resetQueryPool(*timestampQueryPool, startIndex, EngineConfig::TIMESTAMPS_PER_FRAME);
+}
+
+double VulkanContext::getRenderPassTime(uint32_t frameIndex) {
+    uint32_t startIndex = frameIndex * EngineConfig::TIMESTAMPS_PER_FRAME;
+
+    vk::Result result = (*device).getQueryPoolResults(
+        timestampQueryPool,
+        startIndex,
+        EngineConfig::TIMESTAMPS_PER_FRAME,
+        EngineConfig::TIMESTAMPS_PER_FRAME * sizeof(uint64_t),
+        &timestamps[startIndex],
+        sizeof(uint64_t),
+        vk::QueryResultFlagBits::e64 | vk::QueryResultFlagBits::eWait
+    );
+
+    assert(result == vk::Result::eSuccess);
+
+    vk::PhysicalDeviceLimits const& deviceLimits = physicalDevice.getProperties().limits;
+    float deltaInMS = float(timestamps[startIndex+1] - timestamps[startIndex]) * deviceLimits.timestampPeriod / 1000000.0f;
+
+    return deltaInMS;
 }

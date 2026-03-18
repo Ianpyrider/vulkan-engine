@@ -49,5 +49,6 @@ private:
 	void createVertexBuffer();
 
 	AllocatedBuffer vertexBuffer;
+	uint32_t warmUpFrames = 0;
 };
 

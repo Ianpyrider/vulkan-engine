@@ -2,13 +2,12 @@
 
 #include "Renderer.h"
 
+#include "EngineConfig.h"
 #include "VulkanContext.h"
 #include "SwapChainManager.h"
 #include "GraphicsPipeline.h"
 
 #include "Vertex.h"
-
-constexpr int MAX_FRAMES_IN_FLIGHT = 2;
 
 const std::vector<Vertex> triangleInfo = {
     { glm::vec2(0.0, -0.5), glm::vec3(1.0, 0.0, 0.0) },
@@ -43,7 +42,7 @@ void Renderer::createCommandBuffers() {
     vk::CommandBufferAllocateInfo allocInfo{
         .commandPool = commandPool,
         .level = vk::CommandBufferLevel::ePrimary,
-        .commandBufferCount = MAX_FRAMES_IN_FLIGHT
+        .commandBufferCount = EngineConfig::MAX_FRAMES_IN_FLIGHT
     };
 
     commandBuffers = vk::raii::CommandBuffers(context.getDevice(), allocInfo);
@@ -52,7 +51,11 @@ void Renderer::createCommandBuffers() {
 void Renderer::recordCommandBuffer(uint32_t imageIndex) {
     auto& commandBuffer = commandBuffers[frameIndex];
 
+    uint32_t startIndex = frameIndex * EngineConfig::TIMESTAMPS_PER_FRAME;
+
     commandBuffer.begin({});
+
+    commandBuffer.writeTimestamp2(vk::PipelineStageFlagBits2::eTopOfPipe, context.getTimestampQueryPool(), startIndex);
 
     // Before starting rendering, transition the swapchain image to COLOR_ATTACHMENT_OPTIMAL
     transitionImageLayout(
@@ -96,6 +99,8 @@ void Renderer::recordCommandBuffer(uint32_t imageIndex) {
     commandBuffer.draw(triangleInfo.size(), 1, 0, 0);
 
     commandBuffer.endRendering();
+
+    commandBuffer.writeTimestamp2(vk::PipelineStageFlagBits2::eBottomOfPipe, context.getTimestampQueryPool(), startIndex+1);
 
     // After rendering, transition the swapchain image to PRESENT_SRC
     transitionImageLayout(
@@ -158,7 +163,7 @@ void Renderer::createSyncObjects() {
 
     assert(presentCompleteSemaphores.empty() && renderFinishedSemaphores.empty() && inFlightFences.empty());
 
-    for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+    for (size_t i = 0; i < EngineConfig::MAX_FRAMES_IN_FLIGHT; i++) {
         presentCompleteSemaphores.emplace_back(vk::raii::Semaphore(device, vk::SemaphoreCreateInfo())); // Notice device is specified
         inFlightFences.emplace_back(vk::raii::Fence(device, { .flags = vk::FenceCreateFlagBits::eSignaled }));
     }
@@ -171,7 +176,7 @@ void Renderer::createSyncObjects() {
 void Renderer::drawFrame() {
     auto& device = context.getDevice();
 
-    // Making sure we're not fenced here means we wait until we get a signal from graphicsQueue.submit
+    // Making sure we're not fenced here means we wait until we get a signal from graphicsQueue.submit for the corresponding frame
     auto fenceResult = device.waitForFences(*inFlightFences[frameIndex], vk::True, UINT64_MAX);
 
     if (fenceResult != vk::Result::eSuccess)
@@ -179,6 +184,16 @@ void Renderer::drawFrame() {
         throw std::runtime_error("failed to wait for fence!");
     }
 
+    if (warmUpFrames >= 2) {
+        printf("Render pass time (ms): %f\n", context.getRenderPassTime(frameIndex));
+    }
+    else {
+        warmUpFrames++;
+    }
+
+    context.resetQueryPool(frameIndex);
+
+    // imageIndex is the index of the next image to be rendered to by the swapChain. acquireNextImage signals that presentation is complete for a frame 
     auto [result, imageIndex] = swapChainManager.getSwapChain().acquireNextImage(UINT64_MAX, *presentCompleteSemaphores[frameIndex], nullptr);
 
     if (result == vk::Result::eErrorOutOfDateKHR)
@@ -233,7 +248,7 @@ void Renderer::drawFrame() {
     }
 
 
-    frameIndex = (frameIndex + 1) % MAX_FRAMES_IN_FLIGHT;
+    frameIndex = (frameIndex + 1) % EngineConfig::MAX_FRAMES_IN_FLIGHT;
 }
 
 void Renderer::createVertexBuffer() { 

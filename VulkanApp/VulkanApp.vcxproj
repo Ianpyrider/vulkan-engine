@@ -189,6 +189,7 @@
     </CustomBuild>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Headers\EngineConfig.h" />
     <ClInclude Include="Headers\GraphicsPipeline.h" />
     <ClInclude Include="Headers\Types.h" />
     <ClInclude Include="Headers\VulkanApplication.h" />
