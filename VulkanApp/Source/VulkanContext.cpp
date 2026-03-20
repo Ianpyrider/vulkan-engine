@@ -82,7 +82,7 @@ VulkanContext::VulkanContext(GLFWwindow* window) {
     createSurface(window);
     pickPhysicalDevice();
     createLogicalDevice();
-    createVMA();
+    createVma();
     createQueryPools();
 }
 
@@ -281,7 +281,7 @@ void VulkanContext::createLogicalDevice() {
     presentQueue = vk::raii::Queue(device, presentIndex, 0);
 }
 
-void VulkanContext::createVMA() {
+void VulkanContext::createVma() {
     VmaVulkanFunctions vulkanFunctions = {
         .vkGetInstanceProcAddr = &vkGetInstanceProcAddr,
         .vkGetDeviceProcAddr = &vkGetDeviceProcAddr
@@ -319,6 +319,16 @@ AllocatedBuffer VulkanContext::createVmaBuffer(VkDeviceSize size) {
     vmaCreateBuffer(allocator, &bufferInfo, &allocInfo, &buffer, &allocation, &info);
 
     return { buffer, allocation, info };
+}
+
+vk::Image VulkanContext::createVmaImage(vk::ImageCreateInfo info, VmaAllocationCreateInfo allocCreateInfo) { // Need to make a better generic function probably but not familiar enough with use cases :(
+    VkImage image;
+    VmaAllocation alloc;
+
+    vmaCreateImage(allocator, info, &allocCreateInfo, &image, &alloc, nullptr);
+
+    vk::Image out = image;
+    return out;
 }
 
 void VulkanContext::createQueryPools() {

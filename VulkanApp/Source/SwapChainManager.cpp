@@ -1,9 +1,9 @@
-#include "VulkanInclude.h"
-#include <GLFW/glfw3.h>
-#include <GLFW/glfw3native.h>
+#include "SwapChainManager.h"
+
 #include <algorithm>
 
-#include "SwapChainManager.h"
+#include <GLFW/glfw3.h>
+#include <GLFW/glfw3native.h>
 
 #include "VulkanContext.h"
 

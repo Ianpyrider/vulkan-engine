@@ -42,10 +42,22 @@
     <ClCompile Include="Source\Vertex.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="Source\fileUtils.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\ComputePipeline.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Source\vulkanUtils.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="compile.bat">
       <Filter>Source Files</Filter>
+    </None>
+    <None Include="Shaders\n64_compute.slang">
+      <Filter>Shaders</Filter>
     </None>
   </ItemGroup>
   <ItemGroup>
@@ -78,7 +90,16 @@
     <ClInclude Include="Headers\Types.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Headers\EngineConfig.h">
+    <ClInclude Include="Headers\engineConfig.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Headers\fileUtils.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Headers\ComputePipeline.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Headers\vulkanUtils.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

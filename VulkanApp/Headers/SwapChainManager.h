@@ -3,6 +3,7 @@
 #include "VulkanInclude.h"
 
 class VulkanContext;
+struct GLFWwindow;
 
 class SwapChainManager
 {

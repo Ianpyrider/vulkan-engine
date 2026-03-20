@@ -156,14 +156,17 @@
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="Source\ComputePipeline.cpp" />
     <ClCompile Include="Source\GraphicsPipeline.cpp" />
     <ClCompile Include="Source\main.cpp" />
     <ClCompile Include="Source\Renderer.cpp" />
+    <ClCompile Include="Source\fileUtils.cpp" />
     <ClCompile Include="Source\VmaUsage.cpp" />
     <ClCompile Include="Source\VulkanContext.cpp" />
     <ClCompile Include="Source\VulkanApplication.cpp" />
     <ClCompile Include="Source\SwapChainManager.cpp" />
     <ClCompile Include="Source\Vertex.cpp" />
+    <ClCompile Include="Source\vulkanUtils.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\VulkanCore\VulkanCore.vcxproj">
@@ -187,9 +190,11 @@
       <Message Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Copiling Slang Shader: %(Filename)</Message>
       <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(TargetDir)slang.spv</Outputs>
     </CustomBuild>
+    <None Include="Shaders\n64_compute.slang" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="Headers\EngineConfig.h" />
+    <ClInclude Include="Headers\ComputePipeline.h" />
+    <ClInclude Include="Headers\engineConfig.h" />
     <ClInclude Include="Headers\GraphicsPipeline.h" />
     <ClInclude Include="Headers\Types.h" />
     <ClInclude Include="Headers\VulkanApplication.h" />
@@ -198,6 +203,8 @@
     <ClInclude Include="Headers\VulkanInclude.h" />
     <ClInclude Include="Headers\Renderer.h" />
     <ClInclude Include="Headers\Vertex.h" />
+    <ClInclude Include="Headers\fileUtils.h" />
+    <ClInclude Include="Headers\vulkanUtils.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

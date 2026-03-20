@@ -20,6 +20,5 @@ private:
 	vk::raii::Pipeline graphicsPipeline = nullptr;
 
 	void createGraphicsPipeline();
-	[[nodiscard]] vk::raii::ShaderModule createShaderModule(const std::vector<char>& code) const;
 };
 
