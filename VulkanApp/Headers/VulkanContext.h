@@ -21,7 +21,8 @@ public:
     VmaAllocator& getVmaAllocator() { return allocator; }
     vk::raii::QueryPool& getTimestampQueryPool() { return timestampQueryPool; }
     AllocatedBuffer createVmaBuffer(VkDeviceSize size);
-    vk::Image createVmaImage(vk::ImageCreateInfo info, VmaAllocationCreateInfo allocCreateInfo);
+    AllocatedImage createVmaImage(vk::ImageCreateInfo info, VmaAllocationCreateInfo allocCreateInfo);
+    void destroyVmaImage(vk::Image& image, VmaAllocation& allocation);
     void resetQueryPool(uint32_t frameIndex);
     double getRenderPassTime(uint32_t frameIndex);
 private:

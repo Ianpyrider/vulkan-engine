@@ -321,14 +321,27 @@ AllocatedBuffer VulkanContext::createVmaBuffer(VkDeviceSize size) {
     return { buffer, allocation, info };
 }
 
-vk::Image VulkanContext::createVmaImage(vk::ImageCreateInfo info, VmaAllocationCreateInfo allocCreateInfo) { // Need to make a better generic function probably but not familiar enough with use cases :(
+AllocatedImage VulkanContext::createVmaImage(vk::ImageCreateInfo info, VmaAllocationCreateInfo allocCreateInfo) {
     VkImage image;
     VmaAllocation alloc;
 
-    vmaCreateImage(allocator, info, &allocCreateInfo, &image, &alloc, nullptr);
+    VkImageCreateInfo c_info = static_cast<VkImageCreateInfo>(info);
 
-    vk::Image out = image;
-    return out;
+    if (vmaCreateImage(allocator, &c_info, &allocCreateInfo, &image, &alloc, nullptr) != VK_SUCCESS) {
+        throw std::runtime_error("Failed to allocate VMA image!");
+    }
+
+    return { vk::Image(image), alloc };
+}
+
+void VulkanContext::destroyVmaImage(vk::Image& image, VmaAllocation& allocation) {
+    if (image && allocation) {
+        vmaDestroyImage(allocator, static_cast<VkImage>(image), allocation);
+
+        // So we don't accidentally destroy twice
+        image = nullptr;
+        allocation = nullptr;
+    }
 }
 
 void VulkanContext::createQueryPools() {
@@ -348,7 +361,7 @@ void VulkanContext::createQueryPools() {
         }
     }
 
-    timestamps.resize(EngineConfig::NUM_TIMESTAMPS);
+    timestamps.resize(engineConfig::NUM_TIMESTAMPS);
 
     vk::QueryPoolCreateInfo timestampPoolInfo;
     timestampPoolInfo.sType = vk::StructureType::eQueryPoolCreateInfo;
@@ -359,18 +372,18 @@ void VulkanContext::createQueryPools() {
 }
 
 void VulkanContext::resetQueryPool(uint32_t frameIndex) {
-    uint32_t startIndex = frameIndex * EngineConfig::TIMESTAMPS_PER_FRAME;
-    (*device).resetQueryPool(*timestampQueryPool, startIndex, EngineConfig::TIMESTAMPS_PER_FRAME);
+    uint32_t startIndex = frameIndex * engineConfig::TIMESTAMPS_PER_FRAME;
+    (*device).resetQueryPool(*timestampQueryPool, startIndex, engineConfig::TIMESTAMPS_PER_FRAME);
 }
 
 double VulkanContext::getRenderPassTime(uint32_t frameIndex) {
-    uint32_t startIndex = frameIndex * EngineConfig::TIMESTAMPS_PER_FRAME;
+    uint32_t startIndex = frameIndex * engineConfig::TIMESTAMPS_PER_FRAME;
 
     vk::Result result = (*device).getQueryPoolResults(
         timestampQueryPool,
         startIndex,
-        EngineConfig::TIMESTAMPS_PER_FRAME,
-        EngineConfig::TIMESTAMPS_PER_FRAME * sizeof(uint64_t),
+        engineConfig::TIMESTAMPS_PER_FRAME,
+        engineConfig::TIMESTAMPS_PER_FRAME * sizeof(uint64_t),
         &timestamps[startIndex],
         sizeof(uint64_t),
         vk::QueryResultFlagBits::e64 | vk::QueryResultFlagBits::eWait

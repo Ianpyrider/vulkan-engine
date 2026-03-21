@@ -1,13 +1,14 @@
-[vk::image_format("r32f")]
+[[vk::binding(0, 0)]]
 Texture2D<float4> inputImage;
 
-[vk::image_format("r32f")]
+[[vk::binding(1, 0)]]
+[format("rgba8")]
 RWTexture2D<float4> outputImage;
 
 [shader("compute")]
-[numthreads(16, 16, 1)]
+[numthreads(1, 1, 1)]
 void compMain(uint3 threadId: SV_DispatchThreadID) {
-    uint index = threadId.x;
+    uint2 index = threadId.xy;
 
     outputImage[index] = float4(1.0, 0.0, 0.0, 1.0); 
 }

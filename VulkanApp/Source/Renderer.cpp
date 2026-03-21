@@ -6,6 +6,7 @@
 #include "VulkanContext.h"
 #include "SwapChainManager.h"
 #include "GraphicsPipeline.h"
+#include "ComputePipeline.h"
 
 #include "Vertex.h"
 
@@ -15,8 +16,8 @@ const std::vector<Vertex> triangleInfo = {
     { glm::vec2(-0.5, 0.5), glm::vec3(0.0, 0.0, 1.0) }
 };
 
-Renderer::Renderer(VulkanContext& context, SwapChainManager& swapChainManager, GraphicsPipeline& pipeline)
-    : context(context), swapChainManager(swapChainManager), pipeline(pipeline) {
+Renderer::Renderer(VulkanContext& context, SwapChainManager& swapChainManager, GraphicsPipeline& graphicsPipeline, ComputePipeline& computePipeline)
+    : context(context), swapChainManager(swapChainManager), graphicsPipeline(graphicsPipeline), computePipeline(computePipeline) {
     createCommandPool();
     createCommandBuffers();
     createSyncObjects();
@@ -57,9 +58,9 @@ void Renderer::recordCommandBuffer(uint32_t imageIndex) {
 
     commandBuffer.writeTimestamp2(vk::PipelineStageFlagBits2::eTopOfPipe, context.getTimestampQueryPool(), startIndex);
 
-    // Before starting rendering, transition the swapchain image to COLOR_ATTACHMENT_OPTIMAL
+    // Before starting rendering, transition the compute target image to COLOR_ATTACHMENT_OPTIMAL
     transitionImageLayout(
-        imageIndex,
+        computePipeline.getImage(),
         vk::ImageLayout::eUndefined,
         vk::ImageLayout::eColorAttachmentOptimal,
         {},                                                         // srcAccessMask (no need to wait for previous operations)
@@ -71,7 +72,8 @@ void Renderer::recordCommandBuffer(uint32_t imageIndex) {
 
     vk::ClearValue clearColor = vk::ClearColorValue(0.0f, 0.0f, 0.0f, 1.0f);
     vk::RenderingAttachmentInfo attachmentInfo = {
-        .imageView = swapChainManager.getImageViews()[imageIndex],
+        //.imageView = swapChainManager.getImageViews()[imageIndex],
+        .imageView = computePipeline.getImageView(),
         .imageLayout = vk::ImageLayout::eColorAttachmentOptimal,
         .loadOp = vk::AttachmentLoadOp::eClear,
         .storeOp = vk::AttachmentStoreOp::eStore,
@@ -87,7 +89,7 @@ void Renderer::recordCommandBuffer(uint32_t imageIndex) {
 
     commandBuffer.beginRendering(renderingInfo); // WAHOOOOOOOOOOOOOOOOOOOOOOOOOOOO
 
-    commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, pipeline.getGraphicsPipeline());
+    commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, graphicsPipeline.getGraphicsPipeline());
 
     VkDeviceSize offset = 0;
     vkCmdBindVertexBuffers(*commandBuffer, 0, 1, &vertexBuffer.buffer, &offset); // Raii doesn't play nicely with VMA so we make this call directly on the unwrapped command buffer
@@ -100,25 +102,59 @@ void Renderer::recordCommandBuffer(uint32_t imageIndex) {
 
     commandBuffer.endRendering();
 
-    commandBuffer.writeTimestamp2(vk::PipelineStageFlagBits2::eBottomOfPipe, context.getTimestampQueryPool(), startIndex+1);
+    // NOW THE COMPUTE STAGE
 
-    // After rendering, transition the swapchain image to PRESENT_SRC
-    transitionImageLayout(
-        imageIndex,
+    transitionImageLayout( // Transition compute image to read only
+        computePipeline.getImage(),
         vk::ImageLayout::eColorAttachmentOptimal,
-        vk::ImageLayout::ePresentSrcKHR,
-        vk::AccessFlagBits2::eColorAttachmentWrite,             // srcAccessMask
-        {},                                                     // dstAccessMask
-        vk::PipelineStageFlagBits2::eColorAttachmentOutput,     // srcStage
-        vk::PipelineStageFlagBits2::eBottomOfPipe,               // dstStage
+        vk::ImageLayout::eShaderReadOnlyOptimal,
+        vk::AccessFlagBits2::eColorAttachmentWrite,
+        vk::AccessFlagBits2::eShaderRead,
+        vk::PipelineStageFlagBits2::eColorAttachmentOutput,
+        vk::PipelineStageFlagBits2::eComputeShader,
         commandBuffer
     );
+
+    // NOTE: We could modify transitionImage so that we can use a single barrier with these two transitionImageLayout calls
+    transitionImageLayout( // Transition swapchain image so it can be written to
+        swapChainManager.getImages()[imageIndex],              
+        vk::ImageLayout::eUndefined,
+        vk::ImageLayout::eGeneral,
+        vk::AccessFlagBits2::eNone,                     // srcAccessMask
+        vk::AccessFlagBits2::eShaderWrite,              // dstAccessMask
+        vk::PipelineStageFlagBits2::eTopOfPipe,                // srcStage
+        vk::PipelineStageFlagBits2::eComputeShader,             // dstStage
+        commandBuffer
+    );
+
+    commandBuffer.bindPipeline(vk::PipelineBindPoint::eCompute, computePipeline.getComputePipeline());
+    commandBuffer.bindDescriptorSets(
+        vk::PipelineBindPoint::eCompute,
+        computePipeline.getPipelineLayout(),
+        0,
+        { computePipeline.getDescriptorSets()[imageIndex] },
+        nullptr
+    );
+    commandBuffer.dispatch(swapChainManager.getExtent().width, swapChainManager.getExtent().height, 1);
+
+    transitionImageLayout(
+        swapChainManager.getImages()[imageIndex],              
+        vk::ImageLayout::eGeneral,
+        vk::ImageLayout::ePresentSrcKHR,        
+        vk::AccessFlagBits2::eShaderWrite,              // srcAccessMask
+        {},                                             // dstAccessMask
+        vk::PipelineStageFlagBits2::eComputeShader,     // srcStage
+        vk::PipelineStageFlagBits2::eBottomOfPipe,      // dstStage
+        commandBuffer
+    );
+
+    commandBuffer.writeTimestamp2(vk::PipelineStageFlagBits2::eBottomOfPipe, context.getTimestampQueryPool(), startIndex+1);
 
     commandBuffer.end();
 }
 
 void Renderer::transitionImageLayout(
-    uint32_t imageIndex,
+    vk::Image& image,
     vk::ImageLayout oldLayout,
     vk::ImageLayout newLayout,
     vk::AccessFlags2 srcAccessMask,
@@ -136,7 +172,7 @@ void Renderer::transitionImageLayout(
         .newLayout = newLayout,
         .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
         .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-        .image = swapChainManager.getImages()[imageIndex],
+        .image = image,
         .subresourceRange = {
             .aspectMask = vk::ImageAspectFlagBits::eColor,
             .baseMipLevel = 0,

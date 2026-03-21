@@ -32,12 +32,6 @@ void SwapChainManager::createSwapChain() {
     auto minImageCount = std::max(3u, surfaceCapabilities.minImageCount);
     minImageCount = (surfaceCapabilities.maxImageCount > 0 && minImageCount > surfaceCapabilities.maxImageCount) ? surfaceCapabilities.maxImageCount : minImageCount;
 
-    uint32_t imageCount = surfaceCapabilities.minImageCount + 1;
-
-    if (surfaceCapabilities.maxImageCount > 0 && imageCount > surfaceCapabilities.maxImageCount) {
-        imageCount = surfaceCapabilities.maxImageCount;
-    }
-
     vk::SwapchainCreateInfoKHR swapChainCreateInfo{
         .flags = vk::SwapchainCreateFlagsKHR(),
         .surface = *surface,
@@ -46,7 +40,7 @@ void SwapChainManager::createSwapChain() {
         .imageColorSpace = swapChainSurfaceFormat.colorSpace,
         .imageExtent = swapChainExtent,
         .imageArrayLayers = 1,
-        .imageUsage = vk::ImageUsageFlagBits::eColorAttachment,
+        .imageUsage = vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eStorage,
         .imageSharingMode = vk::SharingMode::eExclusive,
         .preTransform = surfaceCapabilities.currentTransform,
         .compositeAlpha = vk::CompositeAlphaFlagBitsKHR::eOpaque,
@@ -61,7 +55,7 @@ void SwapChainManager::createSwapChain() {
 
 vk::SurfaceFormatKHR SwapChainManager::chooseSwapSurfaceFormat(const std::vector<vk::SurfaceFormatKHR>& availableFormats) {
     for (const auto& availableFormat : availableFormats) {
-        if (availableFormat.format == vk::Format::eB8G8R8A8Srgb && availableFormat.colorSpace == vk::ColorSpaceKHR::eSrgbNonlinear) {
+        if (availableFormat.format == vk::Format::eR8G8B8A8Unorm && availableFormat.colorSpace == vk::ColorSpaceKHR::eSrgbNonlinear) {
             return availableFormat;
         }
     }

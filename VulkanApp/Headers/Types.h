@@ -8,3 +8,8 @@ struct AllocatedBuffer {
     VmaAllocation allocation = nullptr;
     VmaAllocationInfo info = {};
 };
+
+struct AllocatedImage {
+    VkImage image = VK_NULL_HANDLE;
+    VmaAllocation allocation = nullptr;
+};

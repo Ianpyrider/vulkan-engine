@@ -9,22 +9,32 @@
 #include "VulkanContext.h"
 #include "SwapChainManager.h"
 
-ComputePipeline::ComputePipeline(VulkanContext& context, SwapChainManager& swapChainManager) : context(context), swapChainManager(swapChainManager) {
-	createComputeImage();
-	createComputeImageView();
-	createComputePipeline();
+ComputePipeline::ComputePipeline(VulkanContext& context, SwapChainManager& swapChainManager)
+	: context(context), swapChainManager(swapChainManager) {
+	try {
+		createComputeImage();
+		createComputeImageView();
+		createComputePipeline();
+	}
+	catch (const std::exception& e) {
+		context.destroyVmaImage(targetImage, targetImageAllocation);
+		throw;
+	}
+}
+ComputePipeline::~ComputePipeline() {
+	context.destroyVmaImage(targetImage, targetImageAllocation);
 }
 
 void ComputePipeline::createComputeImage() {
 	vk::ImageCreateInfo computeImageInfo{
 		.imageType = vk::ImageType::e2D,
-		.format = swapChainManager.getSurfaceFormat().format,
+		.format = vk::Format::eR8G8B8A8Unorm, // Might have to handle sRGB myself now?
 		.extent = {swapChainManager.getExtent().width, swapChainManager.getExtent().height, 1},
 		.mipLevels = 1,
 		.arrayLayers = 1,
 		.samples = vk::SampleCountFlagBits::e1,
 		.tiling = vk::ImageTiling::eOptimal,
-		.usage = vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eStorage,
+		.usage = vk::ImageUsageFlagBits::eColorAttachment | vk::ImageUsageFlagBits::eStorage | vk::ImageUsageFlagBits::eSampled,
 	};
 
 	VmaAllocationCreateInfo allocCreateInfo = {};
@@ -32,7 +42,10 @@ void ComputePipeline::createComputeImage() {
 	allocCreateInfo.flags = VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT;
 	allocCreateInfo.priority = 1.0f;
 
-	targetImage = context.createVmaImage(computeImageInfo, allocCreateInfo);
+	AllocatedImage createImage = context.createVmaImage(computeImageInfo, allocCreateInfo);
+	
+	targetImage = createImage.image;
+	targetImageAllocation = createImage.allocation;
 }
 
 void ComputePipeline::createComputeImageView() {
@@ -47,7 +60,7 @@ void ComputePipeline::createComputeImageView() {
 }
 
 void ComputePipeline::createComputePipeline() {
-	vk::raii::ShaderModule shaderModule = vulkanUtils::createShaderModule(context.getDevice(), fileUtils::readFile(engineConfig::SHADER_PATH));
+	vk::raii::ShaderModule shaderModule = vulkanUtils::createShaderModule(context.getDevice(), fileUtils::readFile(engineConfig::COMPUTE_SHADER_PATH));
 
 	vk::PipelineShaderStageCreateInfo shaderStageCreateInfo{
 		.stage = vk::ShaderStageFlagBits::eCompute,
@@ -79,7 +92,76 @@ void ComputePipeline::createComputePipeline() {
 		.pBindings = imageLayoutBindings.data()
 	};
 
+	// Descriptors
+
+	const uint32_t swapChainImageCount = static_cast<uint32_t>(swapChainManager.getImageViews().size());
+
+	// Create Pools
+	std::array<vk::DescriptorPoolSize, 2> poolSizes{
+		vk::DescriptorPoolSize{vk::DescriptorType::eSampledImage, swapChainImageCount},
+		vk::DescriptorPoolSize{vk::DescriptorType::eStorageImage, swapChainImageCount}
+	};
+
+	vk::DescriptorPoolCreateInfo poolInfo{
+		.flags = vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet,
+		.maxSets = swapChainImageCount,
+		.poolSizeCount = static_cast<uint32_t>(poolSizes.size()),
+		.pPoolSizes = poolSizes.data()
+	};
+
+	computeDescriptorPool = vk::raii::DescriptorPool(context.getDevice(), poolInfo);
+
+	// Allocate descriptor sets
+
 	vk::raii::DescriptorSetLayout computeDescriptorSetLayout = vk::raii::DescriptorSetLayout(context.getDevice(), imageLayoutInfo);
+
+	std::vector<vk::DescriptorSetLayout> layouts;
+	layouts.reserve(swapChainImageCount);
+	for (uint32_t i = 0; i < swapChainImageCount; i++) {
+		layouts.push_back(*computeDescriptorSetLayout);
+	}
+
+	vk::DescriptorSetAllocateInfo allocInfo{
+		.descriptorPool = computeDescriptorPool,
+		.descriptorSetCount = static_cast<uint32_t>(layouts.size()),
+		.pSetLayouts = layouts.data()
+	};
+
+	computeDescriptorSets = vk::raii::DescriptorSets(context.getDevice(), allocInfo);
+
+	vk::DescriptorImageInfo targetImageDescriptor{
+		.imageView = targetImageView,
+		.imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal
+	};
+
+	for (size_t i = 0; i < swapChainImageCount; i++) {
+		vk::DescriptorImageInfo swapChainImageDescriptor{
+			.imageView = swapChainManager.getImageViews()[i],
+			.imageLayout = vk::ImageLayout::eGeneral
+		};
+
+		std::array<vk::WriteDescriptorSet, 2> descriptorWrites{
+			vk::WriteDescriptorSet{
+				.dstSet = *computeDescriptorSets[i],
+				.dstBinding = 0,
+				.dstArrayElement = 0,
+				.descriptorCount = 1,
+				.descriptorType = vk::DescriptorType::eSampledImage,
+				.pImageInfo = &targetImageDescriptor
+			},
+
+			vk::WriteDescriptorSet{
+				.dstSet = *computeDescriptorSets[i],
+				.dstBinding = 1,
+				.dstArrayElement = 0,
+				.descriptorCount = 1,
+				.descriptorType = vk::DescriptorType::eStorageImage,
+				.pImageInfo = &swapChainImageDescriptor
+			}
+		};
+
+		context.getDevice().updateDescriptorSets(descriptorWrites, nullptr);
+	};
 
 	vk::PipelineLayoutCreateInfo pipelineLayoutCreateInfo{
 		.setLayoutCount = 1,

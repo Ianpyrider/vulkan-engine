@@ -6,11 +6,12 @@
 class VulkanContext;
 class SwapChainManager;
 class GraphicsPipeline;
+class ComputePipeline;
 
 class Renderer
 {
 public:
-	Renderer(VulkanContext& context, SwapChainManager& swapChainManager, GraphicsPipeline& pipeline);
+	Renderer(VulkanContext& context, SwapChainManager& swapChainManager, GraphicsPipeline& graphicsPipeline, ComputePipeline& computePipeline);
 	~Renderer();
 
 	void drawFrame();
@@ -19,7 +20,8 @@ public:
 private:
 	VulkanContext& context;
 	SwapChainManager& swapChainManager;
-	GraphicsPipeline& pipeline;
+	GraphicsPipeline& graphicsPipeline;
+	ComputePipeline& computePipeline;
 
 	vk::raii::CommandPool commandPool = nullptr;
 	std::vector<vk::raii::CommandBuffer> commandBuffers;
@@ -36,7 +38,7 @@ private:
 	void createSyncObjects();
 	void recordCommandBuffer(uint32_t imageIndex);
 	void transitionImageLayout(
-		uint32_t imageIndex,
+		vk::Image& image,
 		vk::ImageLayout oldLayout,
 		vk::ImageLayout newLayout,
 		vk::AccessFlags2 srcAccessMask,
