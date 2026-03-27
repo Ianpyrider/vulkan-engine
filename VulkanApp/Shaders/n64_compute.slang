@@ -6,9 +6,18 @@ Texture2D<float4> inputImage;
 RWTexture2D<float4> outputImage;
 
 [shader("compute")]
-[numthreads(1, 1, 1)]
+[numthreads(16, 16, 1)]
 void compMain(uint3 threadId: SV_DispatchThreadID) {
     uint2 index = threadId.xy;
 
-    outputImage[index] = float4(1.0, 0.0, 0.0, 1.0); 
+    uint width, height;
+    outputImage.GetDimensions(width, height);
+    if (index.x >= width || index.y >= height) {
+        return;
+    }
+
+    float colorBitsPerChannel = 32.0;
+    float3 inColor = inputImage.Load(int3(index.x, index.y, 0)).rgb;
+
+    outputImage[index] = float4(round(inColor * colorBitsPerChannel) / colorBitsPerChannel, 1.0); 
 }

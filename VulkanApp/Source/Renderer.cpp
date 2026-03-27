@@ -11,9 +11,9 @@
 #include "Vertex.h"
 
 const std::vector<Vertex> triangleInfo = {
-    { glm::vec2(0.0, -0.5), glm::vec3(1.0, 0.0, 0.0) },
-    { glm::vec2(0.5, 0.5), glm::vec3(0.0, 1.0, 0.0) },
-    { glm::vec2(-0.5, 0.5), glm::vec3(0.0, 0.0, 1.0) }
+    { glm::vec2(0.0, -0.5), glm::vec3(0.0, 0.0, 0.0) },
+    { glm::vec2(0.5, 0.5), glm::vec3(1.0, 0.0, 0.0) },
+    { glm::vec2(-0.5, 0.5), glm::vec3(1.0, 0.0, 0.0) }
 };
 
 Renderer::Renderer(VulkanContext& context, SwapChainManager& swapChainManager, GraphicsPipeline& graphicsPipeline, ComputePipeline& computePipeline)
@@ -135,7 +135,7 @@ void Renderer::recordCommandBuffer(uint32_t imageIndex) {
         { computePipeline.getDescriptorSets()[imageIndex] },
         nullptr
     );
-    commandBuffer.dispatch(swapChainManager.getExtent().width, swapChainManager.getExtent().height, 1);
+    commandBuffer.dispatch(((swapChainManager.getExtent().width + 15) / 16.0), ((swapChainManager.getExtent().height+15)/16), 1);
 
     transitionImageLayout(
         swapChainManager.getImages()[imageIndex],              
