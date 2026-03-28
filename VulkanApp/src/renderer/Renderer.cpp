@@ -1,14 +1,14 @@
-#include "VulkanInclude.h"
+#include "shared/VulkanInclude.h"
 
-#include "Renderer.h"
+#include "renderer/Renderer.h"
 
-#include "EngineConfig.h"
-#include "VulkanContext.h"
-#include "SwapChainManager.h"
-#include "GraphicsPipeline.h"
-#include "ComputePipeline.h"
+#include  "shared/EngineConfig.h"
+#include "core/VulkanContext.h"
+#include "core/SwapChainManager.h"
+#include "renderer/GraphicsPipeline.h"
+#include "renderer/ComputePipeline.h"
 
-#include "Vertex.h"
+#include "shared/Vertex.h"
 
 const std::vector<Vertex> triangleInfo = {
     { glm::vec2(0.0, -0.5), glm::vec3(0.0, 0.0, 0.0) },
@@ -43,7 +43,7 @@ void Renderer::createCommandBuffers() {
     vk::CommandBufferAllocateInfo allocInfo{
         .commandPool = commandPool,
         .level = vk::CommandBufferLevel::ePrimary,
-        .commandBufferCount = engineConfig::MAX_FRAMES_IN_FLIGHT
+        .commandBufferCount = EngineConfig::MAX_FRAMES_IN_FLIGHT
     };
 
     commandBuffers = vk::raii::CommandBuffers(context.getDevice(), allocInfo);
@@ -52,7 +52,7 @@ void Renderer::createCommandBuffers() {
 void Renderer::recordCommandBuffer(uint32_t imageIndex) {
     auto& commandBuffer = commandBuffers[frameIndex];
 
-    uint32_t startIndex = frameIndex * engineConfig::TIMESTAMPS_PER_FRAME;
+    uint32_t startIndex = frameIndex * EngineConfig::TIMESTAMPS_PER_FRAME;
 
     commandBuffer.begin({});
 
@@ -199,7 +199,7 @@ void Renderer::createSyncObjects() {
 
     assert(presentCompleteSemaphores.empty() && renderFinishedSemaphores.empty() && inFlightFences.empty());
 
-    for (size_t i = 0; i < engineConfig::MAX_FRAMES_IN_FLIGHT; i++) {
+    for (size_t i = 0; i < EngineConfig::MAX_FRAMES_IN_FLIGHT; i++) {
         presentCompleteSemaphores.emplace_back(vk::raii::Semaphore(device, vk::SemaphoreCreateInfo())); // Notice device is specified
         inFlightFences.emplace_back(vk::raii::Fence(device, { .flags = vk::FenceCreateFlagBits::eSignaled }));
     }
@@ -220,7 +220,7 @@ void Renderer::drawFrame() {
         throw std::runtime_error("failed to wait for fence!");
     }
 
-    if (engineConfig::PRINT_GPU_PROFILING && warmUpFrames >= 2) {
+    if (EngineConfig::PRINT_GPU_PROFILING && warmUpFrames >= 2) {
         printf("Render pass time (ms): %f\n", context.getRenderPassTime(frameIndex));
     }
     else {
@@ -284,7 +284,7 @@ void Renderer::drawFrame() {
     }
 
 
-    frameIndex = (frameIndex + 1) % engineConfig::MAX_FRAMES_IN_FLIGHT;
+    frameIndex = (frameIndex + 1) % EngineConfig::MAX_FRAMES_IN_FLIGHT;
 }
 
 void Renderer::createVertexBuffer() { 

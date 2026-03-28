@@ -15,7 +15,7 @@ add_executable(VulkanApp ${SOURCES})
 
 target_include_directories(VulkanApp PRIVATE
 	${CMAKE_CURRENT_SOURCE_DIR}/Lib/include
-	${CMAKE_CURRENT_SOURCE_DIR}/VulkanApp/Headers
+	${CMAKE_CURRENT_SOURCE_DIR}/VulkanApp/include
 )
 
 target_link_directories(VulkanApp PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/Lib/lib)

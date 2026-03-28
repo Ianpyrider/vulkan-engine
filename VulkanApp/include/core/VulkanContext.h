@@ -1,8 +1,8 @@
 #pragma once
 
-#include "VulkanInclude.h"
+#include "shared/VulkanInclude.h"
 
-#include "Types.h"
+#include "shared/Types.h"
 #include "vma/vk_mem_alloc.h"
 
 struct GLFWwindow;

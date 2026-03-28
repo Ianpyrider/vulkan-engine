@@ -1,6 +1,6 @@
 #pragma once
 
-#include "VulkanInclude.h"
+#include "shared/VulkanInclude.h"
 #include "vma/vk_mem_alloc.h"
 
 struct AllocatedBuffer {

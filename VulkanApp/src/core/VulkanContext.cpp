@@ -1,4 +1,4 @@
-#include "VulkanContext.h"
+#include "core/VulkanContext.h"
 
 #define VK_USE_PLATFORM_WIN32_KHR
 #define GLFW_INCLUDE_VULKAN
@@ -6,8 +6,8 @@
 #define GLFW_EXPOSE_NATIVE_WIN32
 #include <GLFW/glfw3native.h>
 
-#include "Types.h"
-#include "EngineConfig.h"
+#include "shared/Types.h"
+#include  "shared/EngineConfig.h"
 
 #include <iostream>
 #include <cstdlib>
@@ -361,7 +361,7 @@ void VulkanContext::createQueryPools() {
         }
     }
 
-    timestamps.resize(engineConfig::NUM_TIMESTAMPS);
+    timestamps.resize(EngineConfig::NUM_TIMESTAMPS);
 
     vk::QueryPoolCreateInfo timestampPoolInfo;
     timestampPoolInfo.sType = vk::StructureType::eQueryPoolCreateInfo;
@@ -372,18 +372,18 @@ void VulkanContext::createQueryPools() {
 }
 
 void VulkanContext::resetQueryPool(uint32_t frameIndex) {
-    uint32_t startIndex = frameIndex * engineConfig::TIMESTAMPS_PER_FRAME;
-    (*device).resetQueryPool(*timestampQueryPool, startIndex, engineConfig::TIMESTAMPS_PER_FRAME);
+    uint32_t startIndex = frameIndex * EngineConfig::TIMESTAMPS_PER_FRAME;
+    (*device).resetQueryPool(*timestampQueryPool, startIndex, EngineConfig::TIMESTAMPS_PER_FRAME);
 }
 
 double VulkanContext::getRenderPassTime(uint32_t frameIndex) {
-    uint32_t startIndex = frameIndex * engineConfig::TIMESTAMPS_PER_FRAME;
+    uint32_t startIndex = frameIndex * EngineConfig::TIMESTAMPS_PER_FRAME;
 
     vk::Result result = (*device).getQueryPoolResults(
         timestampQueryPool,
         startIndex,
-        engineConfig::TIMESTAMPS_PER_FRAME,
-        engineConfig::TIMESTAMPS_PER_FRAME * sizeof(uint64_t),
+        EngineConfig::TIMESTAMPS_PER_FRAME,
+        EngineConfig::TIMESTAMPS_PER_FRAME * sizeof(uint64_t),
         &timestamps[startIndex],
         sizeof(uint64_t),
         vk::QueryResultFlagBits::e64 | vk::QueryResultFlagBits::eWait

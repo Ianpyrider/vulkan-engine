@@ -1,12 +1,12 @@
-#include "VulkanInclude.h"
+#include "shared/VulkanInclude.h"
 
-#include "VulkanApplication.h"
+#include "core/VulkanApplication.h"
 
-#include "VulkanContext.h"
-#include "SwapChainManager.h"
-#include "GraphicsPipeline.h"
-#include "ComputePipeline.h"
-#include "Renderer.h"
+#include "core/VulkanContext.h"
+#include "core/SwapChainManager.h"
+#include "renderer/GraphicsPipeline.h"
+#include "renderer/ComputePipeline.h"
+#include "renderer/Renderer.h"
 
 #include <memory>
 

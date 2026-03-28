@@ -1,14 +1,14 @@
-#include "VulkanInclude.h"
+#include "shared/VulkanInclude.h"
 
-#include "GraphicsPipeline.h"
+#include "renderer/GraphicsPipeline.h"
 
-#include "Vertex.h"
-#include "fileUtils.h"
-#include "vulkanUtils.h"
-#include "engineConfig.h"
+#include "shared/Vertex.h"
+#include "shared/FileUtils.h"
+#include "shared/VulkanUtils.h"
+#include  "shared/EngineConfig.h"
 
-#include "VulkanContext.h"
-#include "SwapChainManager.h"
+#include "core/VulkanContext.h"
+#include "core/SwapChainManager.h"
 
 #include <iostream>
 #include <fstream>
@@ -22,7 +22,7 @@ void GraphicsPipeline::createGraphicsPipeline() {
     auto& device = context.getDevice();
 
     // Create shaderModule, which takes in vertex and frag shaders here. Basically specify and program the pipeline steps you want to
-    vk::raii::ShaderModule shaderModule = vulkanUtils::createShaderModule(device, fileUtils::readFile(engineConfig::SHADER_PATH));
+    vk::raii::ShaderModule shaderModule = VulkanUtils::createShaderModule(device, FileUtils::readFile(EngineConfig::SHADER_PATH));
 
     vk::PipelineShaderStageCreateInfo vertShaderStageInfo{
         .stage = vk::ShaderStageFlagBits::eVertex,

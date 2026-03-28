@@ -2,7 +2,7 @@
 #include <vector>
 #include <string>
 
-namespace fileUtils
+namespace FileUtils
 {
 	std::vector<char> readFile(const std::string& filename);
 };

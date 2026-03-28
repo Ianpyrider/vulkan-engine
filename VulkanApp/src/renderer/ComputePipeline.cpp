@@ -1,13 +1,13 @@
-#include "ComputePipeline.h"
+#include "renderer/ComputePipeline.h"
 
 #include <vulkan/vulkan_raii.hpp>
 
-#include "engineConfig.h"
-#include "fileUtils.h"
-#include "vulkanUtils.h"
+#include  "shared/EngineConfig.h"
+#include "shared/FileUtils.h"
+#include "shared/VulkanUtils.h"
 
-#include "VulkanContext.h"
-#include "SwapChainManager.h"
+#include "core/VulkanContext.h"
+#include "core/SwapChainManager.h"
 
 ComputePipeline::ComputePipeline(VulkanContext& context, SwapChainManager& swapChainManager)
 	: context(context), swapChainManager(swapChainManager) {
@@ -60,7 +60,7 @@ void ComputePipeline::createComputeImageView() {
 }
 
 void ComputePipeline::createComputePipeline() {
-	vk::raii::ShaderModule shaderModule = vulkanUtils::createShaderModule(context.getDevice(), fileUtils::readFile(engineConfig::COMPUTE_SHADER_PATH));
+	vk::raii::ShaderModule shaderModule = VulkanUtils::createShaderModule(context.getDevice(), FileUtils::readFile(EngineConfig::COMPUTE_SHADER_PATH));
 
 	vk::PipelineShaderStageCreateInfo shaderStageCreateInfo{
 		.stage = vk::ShaderStageFlagBits::eCompute,

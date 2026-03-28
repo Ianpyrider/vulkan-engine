@@ -1,8 +1,8 @@
 #pragma once
 
-#include "VulkanInclude.h"
+#include "shared/VulkanInclude.h"
 
-namespace vulkanUtils
+namespace VulkanUtils
 {
     [[nodiscard]] vk::raii::ShaderModule createShaderModule(vk::raii::Device& device, const std::vector<char>& code);
 };

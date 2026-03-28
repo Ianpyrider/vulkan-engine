@@ -1,8 +1,8 @@
 #pragma once
 
-#include "VulkanInclude.h"
+#include "shared/VulkanInclude.h"
 
-#include "Types.h"
+#include "shared/Types.h"
 
 class VulkanContext;
 class SwapChainManager;

@@ -1,11 +1,11 @@
-#include "SwapChainManager.h"
+#include "core/SwapChainManager.h"
 
 #include <algorithm>
 
 #include <GLFW/glfw3.h>
 #include <GLFW/glfw3native.h>
 
-#include "VulkanContext.h"
+#include "core/VulkanContext.h"
 
 SwapChainManager::SwapChainManager(VulkanContext& context, GLFWwindow* window) 
     : context(context), window(window) 

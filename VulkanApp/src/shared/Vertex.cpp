@@ -1,4 +1,4 @@
-#include "Vertex.h"
+#include "shared/Vertex.h"
 
 std::array<vk::VertexInputAttributeDescription, 2> Vertex::getAttributeDescriptions() {
     {

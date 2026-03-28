@@ -1,7 +1,7 @@
-#include "fileUtils.h"
+#include "shared/FileUtils.h"
 #include <fstream>
 
-namespace fileUtils {
+namespace FileUtils {
     std::vector<char> readFile(const std::string& filename) {
         std::ifstream file(filename, std::ios::ate | std::ios::binary);
 
