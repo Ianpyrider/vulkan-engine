@@ -215,16 +215,45 @@ void Renderer::drawFrame() {
     // Making sure we're not fenced here means we wait until we get a signal from graphicsQueue.submit for the corresponding frame
     auto fenceResult = device.waitForFences(*inFlightFences[frameIndex], vk::True, UINT64_MAX);
 
-    if (fenceResult != vk::Result::eSuccess)
-    {
+    if (fenceResult != vk::Result::eSuccess) {
         throw std::runtime_error("failed to wait for fence!");
     }
 
     if (EngineConfig::PRINT_GPU_PROFILING && warmUpFrames >= 2) {
-        printf("Render pass time (ms): %f\n", context.getRenderPassTime(frameIndex));
-    }
-    else {
+        // Note: With the following line uncommented, performance can be more consistent. Probably because it acts as a throttle? Fifo over mailbox should help this but doesn't entirely I think.
+        // printf("[GPU Profiling] Draw time: %fms\n", context.getRenderPassTime(frameIndex));
+
+        frameDeltas[frameDeltasI] = context.getRenderPassTime(frameIndex);
+        frameDeltasI++;
+        frameDeltasI = frameDeltasI % numDeltas;
+
+        auto curFrameTime = std::chrono::steady_clock::now();
+        std::chrono::duration<float> deltaSeconds = curFrameTime - prevFrameTime;
+        timeSinceLastPrint += deltaSeconds.count();
+
+        if (timeSinceLastPrint > 1.0) {
+            float average = 0.0;
+            float max = 0.0;
+
+            for (auto frameDelta : frameDeltas) {
+                average += frameDelta;
+
+                if (max < frameDelta) {
+                    max = frameDelta;
+                }
+            }
+
+            average = average / numDeltas;
+
+            printf("[GPU Profiling] Average: %fms, Max: %fms\n", average, max);
+
+            timeSinceLastPrint -= 1.0;
+        }
+
+        prevFrameTime = curFrameTime;
+    } else if (EngineConfig::PRINT_GPU_PROFILING) {
         warmUpFrames++;
+        prevFrameTime = std::chrono::steady_clock::now();
     }
 
     context.resetQueryPool(frameIndex);

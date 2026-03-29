@@ -33,7 +33,7 @@ void compMain(uint3 threadId: SV_DispatchThreadID) {
     int bayerIndex = ((index.x % bayerSize) + (bayerSize * (index.y % bayerSize)));
     
     // So first we do Bayer value -> Normalize 0-1 
-    // A final value of 0.5 means that it should be shifted up by half of a color in our 5 bit (32 color) scheme, but usually colors use ~256, so shifting 1 color level in this case would be +8 (256/8)
+    // Now we apply this positive value and floor, meaning that as a float approaches a breakpoint, more and more of the pixels become the new color level
     float bayerScalar = (bayer4x4[bayerIndex] * (1.0 / (bayerSize * bayerSize)));
 
     float3 ditheredColor = inColor + (bayerScalar / colorBitsPerChannel);

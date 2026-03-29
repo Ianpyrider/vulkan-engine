@@ -2,6 +2,7 @@
 
 #include "core/VulkanApplication.h"
 
+#include "shared/EngineConfig.h"
 #include "core/VulkanContext.h"
 #include "core/SwapChainManager.h"
 #include "renderer/GraphicsPipeline.h"
@@ -64,7 +65,7 @@ void VulkanApplication::initWindow() {
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
     glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
 
-    window = glfwCreateWindow(800, 600, "Vulkan", nullptr, nullptr);
+    window = glfwCreateWindow(WINDOW_WIDTH, WINDOW_HEIGHT, "Vulkan", nullptr, nullptr);
     glfwSetWindowUserPointer(window, this);
     glfwSetFramebufferSizeCallback(window, framebufferResizeCallback);
 }

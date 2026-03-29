@@ -3,6 +3,8 @@
 #include "shared/VulkanInclude.h"
 #include "shared/Types.h"
 
+#include <chrono>
+
 class VulkanContext;
 class SwapChainManager;
 class GraphicsPipeline;
@@ -32,6 +34,12 @@ private:
 
 	uint32_t frameIndex = 0;
 	bool framebufferResized = false;
+
+	const uint32_t numDeltas = 60;
+	std::vector<float> frameDeltas = std::vector<float>(numDeltas);
+	uint32_t frameDeltasI = 0;
+	float timeSinceLastPrint = 0.0;
+	std::chrono::time_point<std::chrono::steady_clock> prevFrameTime;
 
 	void createCommandPool();
 	void createCommandBuffers();

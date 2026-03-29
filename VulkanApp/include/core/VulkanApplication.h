@@ -7,6 +7,7 @@ class Renderer;
 class ComputePipeline;
 
 struct GLFWwindow;
+struct GLFWmonitor;
 
 #include <memory>
 
@@ -26,8 +27,11 @@ private:
 	std::unique_ptr<ComputePipeline> vkComputePipeline;
 
 	GLFWwindow* window = nullptr;
+	GLFWmonitor* monitor = nullptr;
 
 	uint32_t graphicsIndex = ~0;
+	const uint32_t WINDOW_WIDTH = 800;
+	const uint32_t WINDOW_HEIGHT = 600;
 
 	void mainLoop();
 	void initWindow();

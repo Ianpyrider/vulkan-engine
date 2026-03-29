@@ -386,7 +386,7 @@ double VulkanContext::getRenderPassTime(uint32_t frameIndex) {
         EngineConfig::TIMESTAMPS_PER_FRAME * sizeof(uint64_t),
         &timestamps[startIndex],
         sizeof(uint64_t),
-        vk::QueryResultFlagBits::e64 | vk::QueryResultFlagBits::eWait
+        vk::QueryResultFlagBits::e64
     );
 
     assert(result == vk::Result::eSuccess);

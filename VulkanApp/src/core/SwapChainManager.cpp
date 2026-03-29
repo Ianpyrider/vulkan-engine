@@ -5,6 +5,7 @@
 #include <GLFW/glfw3.h>
 #include <GLFW/glfw3native.h>
 
+#include "shared/EngineConfig.h"
 #include "core/VulkanContext.h"
 
 SwapChainManager::SwapChainManager(VulkanContext& context, GLFWwindow* window) 
@@ -64,6 +65,10 @@ vk::SurfaceFormatKHR SwapChainManager::chooseSwapSurfaceFormat(const std::vector
 }
 
 vk::PresentModeKHR SwapChainManager::chooseSwapPresentMode(const std::vector<vk::PresentModeKHR>& availablePresentModes) {
+    if (!EngineConfig::ENABLE_MAILBOX_PRESENT) {
+        return vk::PresentModeKHR::eFifo;
+    }
+    
     for (const auto& availablePresentMode : availablePresentModes) {
         if (availablePresentMode == vk::PresentModeKHR::eMailbox) {
             return availablePresentMode;
