@@ -20,7 +20,8 @@ public:
     vk::raii::Queue& getPresentQueue() { return presentQueue; }
     VmaAllocator& getVmaAllocator() { return allocator; }
     vk::raii::QueryPool& getTimestampQueryPool() { return timestampQueryPool; }
-    AllocatedBuffer createVmaBuffer(VkDeviceSize size);
+    AllocatedBuffer createVmaBuffer(VkDeviceSize size, VkBufferUsageFlags bufferFlags, VmaAllocationCreateFlags allocationFlags, VmaMemoryUsage usage);
+    void copyBuffer(AllocatedBuffer src, AllocatedBuffer dst, vk::DeviceSize size);
     AllocatedImage createVmaImage(vk::ImageCreateInfo info, VmaAllocationCreateInfo allocCreateInfo);
     void destroyVmaImage(vk::Image& image, VmaAllocation& allocation);
     void resetQueryPool(uint32_t frameIndex);
@@ -33,6 +34,7 @@ private:
     void createLogicalDevice();
     void createVma();
     void createQueryPools();
+    void createContextCommandPool();
 
     vk::raii::Context context;
     vk::raii::Instance instance = nullptr;
@@ -46,4 +48,5 @@ private:
     VmaAllocator allocator = nullptr;
     vk::raii::QueryPool timestampQueryPool = nullptr;
     std::vector<uint64_t> timestamps = {};
+    vk::raii::CommandPool contextCommandPool = nullptr;
 };

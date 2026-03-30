@@ -84,6 +84,7 @@ VulkanContext::VulkanContext(GLFWwindow* window) {
     createLogicalDevice();
     createVma();
     createQueryPools();
+    createContextCommandPool();
 }
 
 VulkanContext::~VulkanContext() {
@@ -299,17 +300,24 @@ void VulkanContext::createVma() {
     vmaCreateAllocator(&allocatorCreateInfo, &allocator);
 }
 
-AllocatedBuffer VulkanContext::createVmaBuffer(VkDeviceSize size) {
+void VulkanContext::createContextCommandPool() {
+    vk::CommandPoolCreateInfo poolInfo{
+        .flags = vk::CommandPoolCreateFlagBits::eResetCommandBuffer,
+        .queueFamilyIndex = graphicsIndex
+    };
 
+    contextCommandPool = vk::raii::CommandPool(device, poolInfo);
+}
+
+AllocatedBuffer VulkanContext::createVmaBuffer(VkDeviceSize size, VkBufferUsageFlags bufferUsage, VmaAllocationCreateFlags allocationFlags, VmaMemoryUsage allocationUsage) {
     VkBufferCreateInfo bufferInfo = { VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
 
     bufferInfo.size = size;
-    bufferInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT // This is a vertex buffer
-        | VK_BUFFER_USAGE_TRANSFER_DST_BIT; // You will copy into the buffer (it's a destination)
+    bufferInfo.usage = bufferUsage | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
 
     VmaAllocationCreateInfo allocInfo = {
-        .flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT,
-        .usage = VMA_MEMORY_USAGE_AUTO
+        .flags = allocationFlags,
+        .usage = allocationUsage
     };
 
     VkBuffer buffer;
@@ -319,6 +327,18 @@ AllocatedBuffer VulkanContext::createVmaBuffer(VkDeviceSize size) {
     vmaCreateBuffer(allocator, &bufferInfo, &allocInfo, &buffer, &allocation, &info);
 
     return { buffer, allocation, info };
+}
+
+void VulkanContext::copyBuffer(AllocatedBuffer src, AllocatedBuffer dst, vk::DeviceSize size) {
+    vk::CommandBufferAllocateInfo allocInfo{ .commandPool = contextCommandPool, .level = vk::CommandBufferLevel::ePrimary, .commandBufferCount = 1 };
+    vk::raii::CommandBuffer commandCopyBuffer = std::move(device.allocateCommandBuffers(allocInfo).front());
+
+    commandCopyBuffer.begin(vk::CommandBufferBeginInfo{ .flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit });
+    commandCopyBuffer.copyBuffer(src.buffer, dst.buffer, vk::BufferCopy(0, 0, size));
+    commandCopyBuffer.end();
+
+    graphicsQueue.submit(vk::SubmitInfo{ .commandBufferCount = 1, .pCommandBuffers = &*commandCopyBuffer }, nullptr);
+    graphicsQueue.waitIdle();
 }
 
 AllocatedImage VulkanContext::createVmaImage(vk::ImageCreateInfo info, VmaAllocationCreateInfo allocCreateInfo) {

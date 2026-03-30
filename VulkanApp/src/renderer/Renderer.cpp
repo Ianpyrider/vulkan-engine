@@ -7,26 +7,145 @@
 #include "core/SwapChainManager.h"
 #include "renderer/GraphicsPipeline.h"
 #include "renderer/ComputePipeline.h"
+#include "renderer/Vertex.h"
 
-#include "shared/Vertex.h"
-
-const std::vector<Vertex> triangleInfo = {
-    { glm::vec2(0.0, -0.5), glm::vec3(0.0, 0.0, 0.0) },
-    { glm::vec2(0.5, 0.5), glm::vec3(1.0, 0.0, 0.0) },
-    { glm::vec2(-0.5, 0.5), glm::vec3(1.0, 0.0, 0.0) }
-};
+#include <glm/gtc/matrix_transform.hpp>
 
 Renderer::Renderer(VulkanContext& context, SwapChainManager& swapChainManager, GraphicsPipeline& graphicsPipeline, ComputePipeline& computePipeline)
-    : context(context), swapChainManager(swapChainManager), graphicsPipeline(graphicsPipeline), computePipeline(computePipeline) {
+    : context(context), swapChainManager(swapChainManager), graphicsPipeline(graphicsPipeline), computePipeline(computePipeline), triangleMesh(context) {
     createCommandPool();
     createCommandBuffers();
     createSyncObjects();
-    createVertexBuffer();
+    createUniformBuffers();
+    createDescriptorPool();
+    createDescriptorSets();
+
+    startTime = std::chrono::steady_clock::now();
 }
 
 Renderer::~Renderer() {
-    vmaDestroyBuffer(context.getVmaAllocator(), vertexBuffer.buffer, vertexBuffer.allocation);
+    context.getDevice().waitIdle();
+
+    for (auto& ubo : uniformBuffers) {
+        vmaDestroyBuffer(context.getVmaAllocator(), ubo.buffer, ubo.allocation);
+    }
 }
+
+void Renderer::drawFrame() {
+    auto& device = context.getDevice();
+
+    // Making sure we're not fenced here means we wait until we get a signal from graphicsQueue.submit for the corresponding frame
+    auto fenceResult = device.waitForFences(*inFlightFences[frameIndex], vk::True, UINT64_MAX);
+
+    if (fenceResult != vk::Result::eSuccess) {
+        throw std::runtime_error("failed to wait for fence!");
+    }
+
+    if (warmUpFrames >= 2) {
+        auto curFrameTime = std::chrono::steady_clock::now();
+
+        std::chrono::duration<float> totalTime = curFrameTime - startTime;
+
+        updateUniformBuffer(frameIndex, totalTime.count());
+
+        if (EngineConfig::PRINT_GPU_PROFILING) {
+            // Note: With the following line uncommented, performance can be more consistent. Probably because it acts as a throttle? Fifo over mailbox should help this but doesn't entirely I think.
+            // printf("[GPU Profiling] Draw time: %fms\n", context.getRenderPassTime(frameIndex));
+
+            frameDeltas[frameDeltasI] = context.getRenderPassTime(frameIndex);
+            frameDeltasI++;
+            frameDeltasI = frameDeltasI % numDeltas;
+
+            std::chrono::duration<float> deltaSeconds = curFrameTime - prevFrameTime;
+            prevFrameTime = curFrameTime;
+            timeSinceLastPrint += deltaSeconds.count();
+
+            if (timeSinceLastPrint > 1.0) {
+                float average = 0.0;
+                float max = 0.0;
+
+                for (auto frameDelta : frameDeltas) {
+                    average += frameDelta;
+
+                    if (max < frameDelta) {
+                        max = frameDelta;
+                    }
+                }
+
+                average = average / numDeltas;
+
+                printf("[GPU Profiling] Average: %fms, Max: %fms\n", average, max);
+
+                timeSinceLastPrint -= 1.0;
+            }
+        }
+    }
+    else {
+        warmUpFrames++;
+        prevFrameTime = std::chrono::steady_clock::now();
+    }
+
+    context.resetQueryPool(frameIndex);
+
+    // imageIndex is the index of the next image to be rendered to by the swapChain. acquireNextImage signals that presentation is complete for a frame 
+    auto [result, imageIndex] = swapChainManager.getSwapChain().acquireNextImage(UINT64_MAX, *presentCompleteSemaphores[frameIndex], nullptr);
+
+    if (result == vk::Result::eErrorOutOfDateKHR)
+    {
+        swapChainManager.recreateSwapChain();
+        return;
+    }
+    else if (result != vk::Result::eSuccess && result != vk::Result::eSuboptimalKHR)
+    {
+        assert(result == vk::Result::eTimeout || result == vk::Result::eNotReady);
+        throw std::runtime_error("failed to acquire swap chain image!");
+    }
+
+    // Only reset the fence if we are submitting work
+    device.resetFences(*inFlightFences[frameIndex]);
+
+    commandBuffers[frameIndex].reset();
+    recordCommandBuffer(imageIndex);
+
+    vk::PipelineStageFlags waitDestinationStageMask(vk::PipelineStageFlagBits::eColorAttachmentOutput);
+    const vk::SubmitInfo submitInfo{
+        .waitSemaphoreCount = 1,
+        .pWaitSemaphores = &*presentCompleteSemaphores[frameIndex],
+        .pWaitDstStageMask = &waitDestinationStageMask,
+        .commandBufferCount = 1,
+        .pCommandBuffers = &*commandBuffers[frameIndex],
+        .signalSemaphoreCount = 1,
+        .pSignalSemaphores = &*renderFinishedSemaphores[imageIndex] // Knowledge check: Why is this imageIndex and not frameIndex?
+    };
+
+    context.getGraphicsQueue().submit(submitInfo, *inFlightFences[frameIndex]);
+
+    const vk::PresentInfoKHR presentInfoKHR{
+        .waitSemaphoreCount = 1,
+        .pWaitSemaphores = &*renderFinishedSemaphores[imageIndex],
+        .swapchainCount = 1,
+        .pSwapchains = &*swapChainManager.getSwapChain(),
+        .pImageIndices = &imageIndex
+    };
+
+    result = context.getPresentQueue().presentKHR(presentInfoKHR);
+
+    if ((result == vk::Result::eSuboptimalKHR) || (result == vk::Result::eErrorOutOfDateKHR) || framebufferResized)
+    {
+        framebufferResized = false;
+        swapChainManager.recreateSwapChain();
+    }
+    else
+    {
+        // There are no other success codes than eSuccess; on any error code, presentKHR already threw an exception.
+        assert(result == vk::Result::eSuccess);
+    }
+
+
+    frameIndex = (frameIndex + 1) % EngineConfig::MAX_FRAMES_IN_FLIGHT;
+}
+
+// ------ Renderer functions -----------
 
 void Renderer::createCommandPool() {
     vk::CommandPoolCreateInfo poolInfo{
@@ -92,13 +211,16 @@ void Renderer::recordCommandBuffer(uint32_t imageIndex) {
     commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, graphicsPipeline.getGraphicsPipeline());
 
     VkDeviceSize offset = 0;
-    vkCmdBindVertexBuffers(*commandBuffer, 0, 1, &vertexBuffer.buffer, &offset); // Raii doesn't play nicely with VMA so we make this call directly on the unwrapped command buffer
-    
+    vkCmdBindVertexBuffers(*commandBuffer, 0, 1, &triangleMesh.getVertexBuffer().buffer, &offset); // Raii doesn't play nicely with VMA so we make this call directly on the unwrapped command buffer
+    vkCmdBindIndexBuffer(*commandBuffer, triangleMesh.getIndexBuffer().buffer, offset, VK_INDEX_TYPE_UINT16);
+
     // Wow, we set the dynamic settings we specified earlier!
     commandBuffer.setViewport(0, vk::Viewport(0.0f, 0.0f, static_cast<float>(swapChainManager.getExtent().width), static_cast<float>(swapChainManager.getExtent().height), 0.0f, 1.0f));
     commandBuffer.setScissor(0, vk::Rect2D(vk::Offset2D(0, 0), swapChainManager.getExtent()));
 
-    commandBuffer.draw(triangleInfo.size(), 1, 0, 0);
+    commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, graphicsPipeline.getPipelineLayout(), 0, *descriptorSets[frameIndex], nullptr);
+
+    commandBuffer.drawIndexed(triangleMesh.getIndexCount(), 1, 0, 0, 0);
 
     commandBuffer.endRendering();
 
@@ -209,115 +331,78 @@ void Renderer::createSyncObjects() {
     }
 }
 
-void Renderer::drawFrame() {
-    auto& device = context.getDevice();
 
-    // Making sure we're not fenced here means we wait until we get a signal from graphicsQueue.submit for the corresponding frame
-    auto fenceResult = device.waitForFences(*inFlightFences[frameIndex], vk::True, UINT64_MAX);
+void Renderer::createUniformBuffers() {
+    uniformBuffers.reserve(EngineConfig::MAX_FRAMES_IN_FLIGHT);
 
-    if (fenceResult != vk::Result::eSuccess) {
-        throw std::runtime_error("failed to wait for fence!");
+    for (size_t i = 0; i < EngineConfig::MAX_FRAMES_IN_FLIGHT; i++) {
+        uniformBuffers.push_back(
+            context.createVmaBuffer(
+                sizeof(MVP),
+                VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+                VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT,
+                VMA_MEMORY_USAGE_AUTO
+            )
+        );
     }
-
-    if (EngineConfig::PRINT_GPU_PROFILING && warmUpFrames >= 2) {
-        // Note: With the following line uncommented, performance can be more consistent. Probably because it acts as a throttle? Fifo over mailbox should help this but doesn't entirely I think.
-        // printf("[GPU Profiling] Draw time: %fms\n", context.getRenderPassTime(frameIndex));
-
-        frameDeltas[frameDeltasI] = context.getRenderPassTime(frameIndex);
-        frameDeltasI++;
-        frameDeltasI = frameDeltasI % numDeltas;
-
-        auto curFrameTime = std::chrono::steady_clock::now();
-        std::chrono::duration<float> deltaSeconds = curFrameTime - prevFrameTime;
-        timeSinceLastPrint += deltaSeconds.count();
-
-        if (timeSinceLastPrint > 1.0) {
-            float average = 0.0;
-            float max = 0.0;
-
-            for (auto frameDelta : frameDeltas) {
-                average += frameDelta;
-
-                if (max < frameDelta) {
-                    max = frameDelta;
-                }
-            }
-
-            average = average / numDeltas;
-
-            printf("[GPU Profiling] Average: %fms, Max: %fms\n", average, max);
-
-            timeSinceLastPrint -= 1.0;
-        }
-
-        prevFrameTime = curFrameTime;
-    } else if (EngineConfig::PRINT_GPU_PROFILING) {
-        warmUpFrames++;
-        prevFrameTime = std::chrono::steady_clock::now();
-    }
-
-    context.resetQueryPool(frameIndex);
-
-    // imageIndex is the index of the next image to be rendered to by the swapChain. acquireNextImage signals that presentation is complete for a frame 
-    auto [result, imageIndex] = swapChainManager.getSwapChain().acquireNextImage(UINT64_MAX, *presentCompleteSemaphores[frameIndex], nullptr);
-
-    if (result == vk::Result::eErrorOutOfDateKHR)
-    {
-        swapChainManager.recreateSwapChain();
-        return;
-    }
-    else if (result != vk::Result::eSuccess && result != vk::Result::eSuboptimalKHR)
-    {
-        assert(result == vk::Result::eTimeout || result == vk::Result::eNotReady);
-        throw std::runtime_error("failed to acquire swap chain image!");
-    }
-
-    // Only reset the fence if we are submitting work
-    device.resetFences(*inFlightFences[frameIndex]);
-
-    commandBuffers[frameIndex].reset();
-    recordCommandBuffer(imageIndex);
-
-    vk::PipelineStageFlags waitDestinationStageMask(vk::PipelineStageFlagBits::eColorAttachmentOutput);
-    const vk::SubmitInfo submitInfo{
-        .waitSemaphoreCount = 1,
-        .pWaitSemaphores = &*presentCompleteSemaphores[frameIndex],
-        .pWaitDstStageMask = &waitDestinationStageMask,
-        .commandBufferCount = 1,
-        .pCommandBuffers = &*commandBuffers[frameIndex],
-        .signalSemaphoreCount = 1,
-        .pSignalSemaphores = &*renderFinishedSemaphores[imageIndex] // Knowledge check: Why is this imageIndex and not frameIndex?
-    };
-
-    context.getGraphicsQueue().submit(submitInfo, *inFlightFences[frameIndex]);
-
-    const vk::PresentInfoKHR presentInfoKHR{
-        .waitSemaphoreCount = 1,
-        .pWaitSemaphores = &*renderFinishedSemaphores[imageIndex],
-        .swapchainCount = 1,
-        .pSwapchains = &*swapChainManager.getSwapChain(),
-        .pImageIndices = &imageIndex
-    };
-
-    result = context.getPresentQueue().presentKHR(presentInfoKHR);
-
-    if ((result == vk::Result::eSuboptimalKHR) || (result == vk::Result::eErrorOutOfDateKHR) || framebufferResized)
-    {
-        framebufferResized = false;
-        swapChainManager.recreateSwapChain();
-    }
-    else
-    {
-        // There are no other success codes than eSuccess; on any error code, presentKHR already threw an exception.
-        assert(result == vk::Result::eSuccess);
-    }
-
-
-    frameIndex = (frameIndex + 1) % EngineConfig::MAX_FRAMES_IN_FLIGHT;
 }
 
-void Renderer::createVertexBuffer() { 
-    // Apparently using this buffer that's accessible to both the GPU and CPU is inefficient, can update for performance later
-    vertexBuffer = context.createVmaBuffer(sizeof(Vertex) * triangleInfo.size());
-    memcpy(vertexBuffer.info.pMappedData, triangleInfo.data(), sizeof(Vertex) * triangleInfo.size());
+void Renderer::updateUniformBuffer(uint32_t frameIndex, float timeElapsed) {
+    MVP ubo{};
+
+    ubo.model = rotate(glm::mat4(1.0f), timeElapsed * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+    ubo.view = lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+    ubo.proj = glm::perspective(glm::radians(45.0f), static_cast<float>(swapChainManager.getExtent().width) / static_cast<float>(swapChainManager.getExtent().height), 0.1f, 10.0f);
+
+    ubo.proj[1][1] *= -1;
+
+    memcpy(uniformBuffers[frameIndex].info.pMappedData, &ubo, sizeof(ubo));
+}
+
+void Renderer::createDescriptorPool() {
+    vk::DescriptorPoolSize poolSize(vk::DescriptorType::eUniformBuffer, EngineConfig::MAX_FRAMES_IN_FLIGHT);
+
+    vk::DescriptorPoolCreateInfo poolInfo{
+        .flags = vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet,
+        .maxSets = EngineConfig::MAX_FRAMES_IN_FLIGHT,
+        .poolSizeCount = 1,
+        .pPoolSizes = &poolSize
+    };
+
+    descriptorPool = vk::raii::DescriptorPool(context.getDevice(), poolInfo);
+}
+
+void Renderer::createDescriptorSets() {
+    std::vector<vk::DescriptorSetLayout> layouts;
+    layouts.reserve(EngineConfig::MAX_FRAMES_IN_FLIGHT);
+    for (uint32_t i = 0; i < EngineConfig::MAX_FRAMES_IN_FLIGHT; i++) {
+        layouts.push_back(*graphicsPipeline.getDescriptorSetLayout());
+    }
+
+    vk::DescriptorSetAllocateInfo allocInfo{
+        .descriptorPool = descriptorPool,
+        .descriptorSetCount = static_cast<uint32_t>(layouts.size()),
+        .pSetLayouts = layouts.data()
+    };
+
+    descriptorSets = vk::raii::DescriptorSets(context.getDevice(), allocInfo);
+
+    for (uint32_t i = 0; i < EngineConfig::MAX_FRAMES_IN_FLIGHT; i++) {
+        vk::DescriptorBufferInfo bufferInfo{
+            .buffer = uniformBuffers[i].buffer,
+            .offset = 0,
+            .range = sizeof(MVP),
+        };
+
+        vk::WriteDescriptorSet descriptorWrite{
+            .dstSet = *descriptorSets[i],
+            .dstBinding = 0,
+            .dstArrayElement = 0,
+            .descriptorCount = 1,
+            .descriptorType = vk::DescriptorType::eUniformBuffer,
+            .pBufferInfo = &bufferInfo
+        };
+
+        context.getDevice().updateDescriptorSets(descriptorWrite, nullptr);
+    }
 }

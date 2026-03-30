@@ -2,7 +2,7 @@
 
 #include "renderer/GraphicsPipeline.h"
 
-#include "shared/Vertex.h"
+#include "renderer/Vertex.h"
 #include "shared/FileUtils.h"
 #include "shared/VulkanUtils.h"
 #include  "shared/EngineConfig.h"
@@ -15,7 +15,14 @@
 #include <glm/glm.hpp>
 
 GraphicsPipeline::GraphicsPipeline(VulkanContext& context, SwapChainManager& swapChainManager) : context(context), swapChainManager(swapChainManager) {
+    createDescriptorSetLayout();
     createGraphicsPipeline();
+}
+
+void GraphicsPipeline::createDescriptorSetLayout() {
+    vk::DescriptorSetLayoutBinding uboLayoutBinding(0, vk::DescriptorType::eUniformBuffer, 1, vk::ShaderStageFlagBits::eVertex, nullptr);
+    vk::DescriptorSetLayoutCreateInfo layoutInfo{ .bindingCount = 1, .pBindings = &uboLayoutBinding };
+    descriptorSetLayout = vk::raii::DescriptorSetLayout(context.getDevice(), layoutInfo);
 }
 
 void GraphicsPipeline::createGraphicsPipeline() {
@@ -75,7 +82,7 @@ void GraphicsPipeline::createGraphicsPipeline() {
         .rasterizerDiscardEnable = vk::False,
         .polygonMode = vk::PolygonMode::eFill,
         .cullMode = vk::CullModeFlagBits::eBack,
-        .frontFace = vk::FrontFace::eClockwise,
+        .frontFace = vk::FrontFace::eCounterClockwise,
         .depthBiasEnable = vk::False,
         .depthBiasSlopeFactor = 1.0f,
         .lineWidth = 1.0f
@@ -99,7 +106,8 @@ void GraphicsPipeline::createGraphicsPipeline() {
     };
 
     vk::PipelineLayoutCreateInfo pipelineLayoutInfo{
-        .setLayoutCount = 0,
+        .setLayoutCount = 1,
+        .pSetLayouts = &*descriptorSetLayout,
         .pushConstantRangeCount = 0
     };
 
