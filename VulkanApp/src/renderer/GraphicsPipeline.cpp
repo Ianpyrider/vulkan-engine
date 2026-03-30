@@ -115,6 +115,14 @@ void GraphicsPipeline::createGraphicsPipeline() {
 
     auto format = swapChainManager.getSurfaceFormat().format;
 
+    vk::PipelineDepthStencilStateCreateInfo depthStencil{
+        .depthTestEnable = vk::True,
+        .depthWriteEnable = vk::True,
+        .depthCompareOp = vk::CompareOp::eLess,
+        .depthBoundsTestEnable = vk::False,
+        .stencilTestEnable = vk::False
+    };
+
     vk::PipelineRenderingCreateInfo pipelineRenderingCreateInfo{ .colorAttachmentCount = 1, .pColorAttachmentFormats = &format};
 
     vk::GraphicsPipelineCreateInfo pipelineInfo{
@@ -131,6 +139,9 @@ void GraphicsPipeline::createGraphicsPipeline() {
         .layout = pipelineLayout,
         .renderPass = nullptr
     };
+
+    pipelineInfo.pDepthStencilState = &depthStencil;
+    pipelineRenderingCreateInfo.depthAttachmentFormat = swapChainManager.getDepthFormat();
 
     graphicsPipeline = vk::raii::Pipeline(device, nullptr, pipelineInfo);
 }

@@ -186,10 +186,25 @@ void Renderer::recordCommandBuffer(uint32_t imageIndex) {
         vk::AccessFlagBits2::eColorAttachmentWrite,                 // dstAccessMask
         vk::PipelineStageFlagBits2::eColorAttachmentOutput,         // srcStage
         vk::PipelineStageFlagBits2::eColorAttachmentOutput,          // dstStage
+        vk::ImageAspectFlagBits::eColor,
+        commandBuffer
+    );
+
+    transitionImageLayout(
+        swapChainManager.getDepthImage().image,
+        vk::ImageLayout::eUndefined,
+        vk::ImageLayout::eDepthAttachmentOptimal,
+        vk::AccessFlagBits2::eDepthStencilAttachmentWrite,
+        vk::AccessFlagBits2::eDepthStencilAttachmentWrite,
+        vk::PipelineStageFlagBits2::eEarlyFragmentTests | vk::PipelineStageFlagBits2::eLateFragmentTests,
+        vk::PipelineStageFlagBits2::eEarlyFragmentTests | vk::PipelineStageFlagBits2::eLateFragmentTests,
+        vk::ImageAspectFlagBits::eDepth,
         commandBuffer
     );
 
     vk::ClearValue clearColor = vk::ClearColorValue(0.0f, 0.0f, 0.0f, 1.0f);
+    vk::ClearValue clearDepth = vk::ClearDepthStencilValue(1.0f, 0);
+
     vk::RenderingAttachmentInfo attachmentInfo = {
         //.imageView = swapChainManager.getImageViews()[imageIndex],
         .imageView = computePipeline.getImageView(),
@@ -199,11 +214,20 @@ void Renderer::recordCommandBuffer(uint32_t imageIndex) {
         .clearValue = clearColor
     };
 
+    vk::RenderingAttachmentInfo depthAttachmentInfo = {
+        .imageView = swapChainManager.getDepthImageView(),
+        .imageLayout = vk::ImageLayout::eDepthAttachmentOptimal,
+        .loadOp = vk::AttachmentLoadOp::eClear,
+        .storeOp = vk::AttachmentStoreOp::eDontCare,
+        .clearValue = clearDepth
+    };
+
     vk::RenderingInfo renderingInfo = {
         .renderArea = {.offset = { 0, 0 }, .extent = swapChainManager.getExtent()},
         .layerCount = 1,
         .colorAttachmentCount = 1,
-        .pColorAttachments = &attachmentInfo
+        .pColorAttachments = &attachmentInfo,
+        .pDepthAttachment = &depthAttachmentInfo
     };
 
     commandBuffer.beginRendering(renderingInfo); // WAHOOOOOOOOOOOOOOOOOOOOOOOOOOOO
@@ -234,6 +258,7 @@ void Renderer::recordCommandBuffer(uint32_t imageIndex) {
         vk::AccessFlagBits2::eShaderRead,
         vk::PipelineStageFlagBits2::eColorAttachmentOutput,
         vk::PipelineStageFlagBits2::eComputeShader,
+        vk::ImageAspectFlagBits::eColor,
         commandBuffer
     );
 
@@ -246,6 +271,7 @@ void Renderer::recordCommandBuffer(uint32_t imageIndex) {
         vk::AccessFlagBits2::eShaderWrite,              // dstAccessMask
         vk::PipelineStageFlagBits2::eTopOfPipe,                // srcStage
         vk::PipelineStageFlagBits2::eComputeShader,             // dstStage
+        vk::ImageAspectFlagBits::eColor,
         commandBuffer
     );
 
@@ -267,6 +293,7 @@ void Renderer::recordCommandBuffer(uint32_t imageIndex) {
         {},                                             // dstAccessMask
         vk::PipelineStageFlagBits2::eComputeShader,     // srcStage
         vk::PipelineStageFlagBits2::eBottomOfPipe,      // dstStage
+        vk::ImageAspectFlagBits::eColor,
         commandBuffer
     );
 
@@ -276,13 +303,14 @@ void Renderer::recordCommandBuffer(uint32_t imageIndex) {
 }
 
 void Renderer::transitionImageLayout(
-    vk::Image& image,
+    vk::Image image,
     vk::ImageLayout oldLayout,
     vk::ImageLayout newLayout,
     vk::AccessFlags2 srcAccessMask,
     vk::AccessFlags2 dstAccessMask,
     vk::PipelineStageFlags2 srcStageMask,
     vk::PipelineStageFlags2 dstStageMask,
+    vk::ImageAspectFlags imageAspectFlags,
     vk::raii::CommandBuffer& curCommandBuffer
 ) {
     vk::ImageMemoryBarrier2 barrier = {
@@ -296,7 +324,7 @@ void Renderer::transitionImageLayout(
         .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
         .image = image,
         .subresourceRange = {
-            .aspectMask = vk::ImageAspectFlagBits::eColor,
+            .aspectMask = imageAspectFlags,
             .baseMipLevel = 0,
             .levelCount = 1,
             .baseArrayLayer = 0,

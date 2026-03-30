@@ -28,7 +28,6 @@ private:
 	vk::raii::ImageView targetImageView = nullptr;
 	vk::Image targetImage = nullptr;
 	VmaAllocation targetImageAllocation;
-	
 	AllocatedBuffer imageBuffer;
 
 	vk::raii::DescriptorPool computeDescriptorPool = nullptr;
