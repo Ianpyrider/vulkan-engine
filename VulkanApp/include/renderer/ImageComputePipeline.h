@@ -7,22 +7,22 @@
 class VulkanContext;
 class SwapChainManager;
 
-class ComputePipeline
+class ImageComputePipeline
 {
 public:
-	ComputePipeline(VulkanContext& context, SwapChainManager& swapChainManager);
-	~ComputePipeline();
+	ImageComputePipeline(VulkanContext& context, SwapChainManager& swapChainManager);
+	~ImageComputePipeline();
 
 	vk::Image& getImage() { return targetImage; }
 	vk::raii::ImageView& getImageView() { return targetImageView; }
-	vk::raii::Pipeline& getComputePipeline() { return computePipeline; }
+	vk::raii::Pipeline& getComputePipeline() { return pipeline; }
 	vk::raii::PipelineLayout& getPipelineLayout() { return pipelineLayout; }
 	vk::raii::DescriptorSets& getDescriptorSets() { return computeDescriptorSets; };
 private:
 	VulkanContext& context;
 	SwapChainManager& swapChainManager;
 	
-	vk::raii::Pipeline computePipeline = nullptr;
+	vk::raii::Pipeline pipeline = nullptr;
 	vk::raii::PipelineLayout pipelineLayout = nullptr;
 
 	vk::raii::ImageView targetImageView = nullptr;

@@ -24,19 +24,25 @@ void compMain(uint3 threadId: SV_DispatchThreadID) {
         return;
     }
 
+    uint pixelScale = 2;
+    uint2 virtualIndex = (index / pixelScale) * pixelScale;
+    float3 inColor = inputImage.Load(int3(virtualIndex.x, virtualIndex.y, 0)).rgb;
+
     // Apply bayer equation from https://en.wikipedia.org/wiki/Ordered_dithering
+    uint2 ditherCoord = index / pixelScale;
     float colorBitsPerChannel = 31.0;
     int bayerSize = 4;
 
-    float3 inColor = inputImage.Load(int3(index.x, index.y, 0)).rgb;
+    int bayerIndex = ((ditherCoord.x % bayerSize) + (bayerSize * (ditherCoord.y % bayerSize)));
 
-    int bayerIndex = ((index.x % bayerSize) + (bayerSize * (index.y % bayerSize)));
-    
-    // So first we do Bayer value -> Normalize 0-1 
+    // So first we do Bayer value -> Normalize 0-1
     // Now we apply this positive value and floor, meaning that as a float approaches a breakpoint, more and more of the pixels become the new color level
     float bayerScalar = (bayer4x4[bayerIndex] * (1.0 / (bayerSize * bayerSize)));
 
     float3 ditheredColor = inColor + (bayerScalar / colorBitsPerChannel);
-    
-    outputImage[index] = float4(floor(ditheredColor * colorBitsPerChannel) / colorBitsPerChannel, 1.0); 
+    //float3 ditheredColor = inColor;
+
+    outputImage[index] = float4(floor(ditheredColor * colorBitsPerChannel) / colorBitsPerChannel, 1.0);
+
+    //outputImage[index] = inputImage.Load(int3(index.x, index.y, 0));
 }

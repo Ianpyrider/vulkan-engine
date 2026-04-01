@@ -9,12 +9,12 @@
 class VulkanContext;
 class SwapChainManager;
 class GraphicsPipeline;
-class ComputePipeline;
+class ImageComputePipeline;
 
 class Renderer
 {
 public:
-	Renderer(VulkanContext& context, SwapChainManager& swapChainManager, GraphicsPipeline& graphicsPipeline, ComputePipeline& computePipeline);
+	Renderer(VulkanContext& context, SwapChainManager& swapChainManager, GraphicsPipeline& graphicsPipeline, ImageComputePipeline& imageComputePipeline);
 	~Renderer();
 
 	void drawFrame();
@@ -24,10 +24,10 @@ private:
 	VulkanContext& context;
 	SwapChainManager& swapChainManager;
 	GraphicsPipeline& graphicsPipeline;
-	ComputePipeline& computePipeline;
+	ImageComputePipeline& imageComputePipeline;
 
 	// Scene objects
-	Mesh triangleMesh;
+	std::vector<std::unique_ptr<Mesh>> sceneObjects;
 
 	// Command buffer
 	vk::raii::CommandPool commandPool = nullptr;
@@ -65,6 +65,7 @@ private:
 	void createUniformBuffers();
 	void createDescriptorPool();
 	void createDescriptorSets();
+	void loadMeshes();
 
 	void updateUniformBuffer(uint32_t frameIndex, float timeElapsed);
 	void recordCommandBuffer(uint32_t imageIndex);

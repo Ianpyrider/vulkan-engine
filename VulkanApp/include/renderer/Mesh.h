@@ -12,7 +12,7 @@ class VulkanContext;
 class Mesh
 {
 public:
-	Mesh(VulkanContext& context);
+	Mesh(const std::string& filepath, VulkanContext& context);
 	~Mesh();
 
 	AllocatedBuffer& getVertexBuffer() { return vertexBuffer; }
@@ -21,9 +21,13 @@ public:
 private:
 	VulkanContext& context;
 
-	AllocatedBuffer createBuffer(const void* data, size_t bufferSize, VkBufferUsageFlags usage);
-
 	AllocatedBuffer vertexBuffer;
 	AllocatedBuffer indexBuffer;
 	uint32_t indexCount;
+
+	std::vector<Vertex> vertices;
+	std::vector<uint16_t> indices;
+
+	AllocatedBuffer createBuffer(const void* data, size_t bufferSize, VkBufferUsageFlags usage);
+	void loadFromObj(const std::string& filepath);
 };

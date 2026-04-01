@@ -2,27 +2,32 @@
 
 #include "core/VulkanContext.h"
 
-const std::vector<Vertex> vertices = {
-    {{-0.5f, -0.5f, 0.0f}, {1.0f, 0.0f, 0.0f}},
-    {{0.5f, -0.5f, 0.0f}, {0.0f, 1.0f, 0.0f}},
-    {{0.5f, 0.5f, 0.0f}, {0.0f, 0.0f, 1.0f}},
-    {{-0.5f, 0.5f, 0.0f}, {1.0f, 1.0f, 1.0f}},
+#include <tiny_obj_loader/tiny_obj_loader.h>
 
-    {{-0.5f, -0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}},
-    {{0.5f, -0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}},
-    {{0.5f, 0.5f, -0.5f}, {0.0f, 0.0f, 1.0f}},
-    {{-0.5f, 0.5f, -0.5f}, {1.0f, 1.0f, 1.0f}}
-};
+//const std::vector<Vertex> vertices = {
+//    {{-0.5f, -0.5f, 0.0f}, {1.0f, 0.0f, 0.0f}},
+//    {{0.5f, -0.5f, 0.0f}, {1.0f, 0.0f, 0.0f}},
+//    {{0.5f, 0.5f, 0.0f}, {1.0f, 1.0f, 1.0f}},
+//    {{-0.5f, 0.5f, 0.0f}, {1.0f, 1.0f, 1.0f}},
+//
+//    {{-0.5f, -0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}},
+//    {{0.5f, -0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}},
+//    {{0.5f, 0.5f, -0.5f}, {0.0f, 0.0f, 1.0f}},
+//    {{-0.5f, 0.5f, -0.5f}, {1.0f, 1.0f, 1.0f}}
+//};
+//
+//const std::vector<uint16_t> indices = {
+//    0, 1, 2, 2, 3, 0,
+//    4, 5, 6, 6, 7, 4
+//};
 
-const std::vector<uint16_t> indices = {
-    0, 1, 2, 2, 3, 0,
-    4, 5, 6, 6, 7, 4
-};
+Mesh::Mesh(const std::string &filepath, VulkanContext& context) : context(context) {
+    loadFromObj(filepath);
 
-Mesh::Mesh(VulkanContext& context) : context(context) {
-    indexCount = indices.size();
     vertexBuffer = createBuffer(vertices.data(), sizeof(Vertex) * vertices.size(), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
     indexBuffer = createBuffer(indices.data(), sizeof(uint16_t) * indices.size(), VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
+
+    indexCount = indices.size();
 }
 
 Mesh::~Mesh() {
@@ -53,3 +58,39 @@ AllocatedBuffer Mesh::createBuffer(const void* data, size_t bufferSize, VkBuffer
 
     return outputBuffer;
 }
+
+void Mesh::loadFromObj(const std::string& filePath) {
+    tinyobj::attrib_t attrib;
+    std::vector<tinyobj::shape_t> shapes;
+    std::vector<tinyobj::material_t> materials;
+    std::string warn, err;
+
+    if (!tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, &err, filePath.c_str())) {
+        throw std::runtime_error("Caught runtime error: " + warn + err);
+    }
+
+    for (const auto& shape : shapes) {
+        for (const auto& index : shape.mesh.indices) {
+            Vertex vertex;
+
+            vertex.pos = {
+                attrib.vertices[3 * index.vertex_index + 0],
+                attrib.vertices[3 * index.vertex_index + 1],
+                attrib.vertices[3 * index.vertex_index + 2]
+            };
+
+            if (attrib.colors.empty()) {
+                throw std::runtime_error("no vertex colors");
+            }
+
+            vertex.color = {
+                attrib.colors[3 * index.vertex_index + 0],
+                attrib.colors[3 * index.vertex_index + 1],
+                attrib.colors[3 * index.vertex_index + 2]
+            };
+
+            vertices.push_back(vertex);
+            indices.push_back(indices.size());
+        }
+    }
+ }

@@ -9,3 +9,11 @@ Ideas:
 		- CD_NOISE: "Adds pesudo-random noise with a very long period into the LSBs of each pixel"
 			- Apparently this makes dithering vary from frame to frame?
 	    - There's more but this seems decent for now. It keeps talking about fog
+
+
+Performance benchmarks:
+
+- Triangle (no compute): <0.01 ms per frame
+- Triangle (every pixel red): ~0.01 ms per frame
+- Triangle (15-bit color quantization): ~0.01 ms/frame
+- Triangle (CQ + Bayer Dither): ~0.01 ms/frame

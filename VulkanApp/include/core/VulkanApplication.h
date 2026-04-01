@@ -4,7 +4,7 @@ class VulkanContext;
 class SwapChainManager;
 class GraphicsPipeline;
 class Renderer;
-class ComputePipeline;
+class ImageComputePipeline;
 
 struct GLFWwindow;
 struct GLFWmonitor;
@@ -24,7 +24,7 @@ private:
 	std::unique_ptr<SwapChainManager> vkSwapChainManager;
 	std::unique_ptr<GraphicsPipeline> vkGraphicsPipeline;
 	std::unique_ptr<Renderer> vkRenderer;
-	std::unique_ptr<ComputePipeline> vkComputePipeline;
+	std::unique_ptr<ImageComputePipeline> vkImageComputePipeline;
 
 	GLFWwindow* window = nullptr;
 	GLFWmonitor* monitor = nullptr;

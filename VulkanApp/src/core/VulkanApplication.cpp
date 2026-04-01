@@ -6,7 +6,7 @@
 #include "core/VulkanContext.h"
 #include "core/SwapChainManager.h"
 #include "renderer/GraphicsPipeline.h"
-#include "renderer/ComputePipeline.h"
+#include "renderer/ImageComputePipeline.h"
 #include "renderer/Renderer.h"
 
 #include <memory>
@@ -22,9 +22,9 @@ VulkanApplication::VulkanApplication() {
     vkSwapChainManager = std::make_unique<SwapChainManager>(*vkContext, window);
 
     vkGraphicsPipeline = std::make_unique<GraphicsPipeline>(*vkContext, *vkSwapChainManager);
-    vkComputePipeline = std::make_unique<ComputePipeline>(*vkContext, *vkSwapChainManager);
+    vkImageComputePipeline = std::make_unique<ImageComputePipeline>(*vkContext, *vkSwapChainManager);
 
-    vkRenderer = std::make_unique<Renderer>(*vkContext, *vkSwapChainManager, *vkGraphicsPipeline, *vkComputePipeline);
+    vkRenderer = std::make_unique<Renderer>(*vkContext, *vkSwapChainManager, *vkGraphicsPipeline, *vkImageComputePipeline);
 }
 
 VulkanApplication::~VulkanApplication() {
@@ -32,15 +32,7 @@ VulkanApplication::~VulkanApplication() {
         vkContext->getDevice().waitIdle();
     }
 
-    // Explicitly destroy in reverse order
-    vkRenderer.reset();           
-    vkComputePipeline.reset();    
-    vkGraphicsPipeline.reset();   
-
-    vkSwapChainManager->cleanupSwapChain();
-    vkSwapChainManager.reset();   
-
-    vkContext.reset();
+    vkSwapChainManager->cleanupSwapChain(); 
 
     glfwDestroyWindow(window);
     glfwTerminate();

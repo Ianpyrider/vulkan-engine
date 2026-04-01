@@ -27,5 +27,7 @@ VertexOutput vertMain(VertexInput input) {
 [shader("fragment")]
 float4 fragMain(VertexOutput inVert) : SV_Target
 {
-    return float4(inVert.color, 1.0);
+    // float3 liftedColor = pow(inVert.color, float3(1.0 / 1.3)); // Gamma lift
+    float3 liftedColor = inVert.color;
+    return float4(liftedColor, 1.0);
 }

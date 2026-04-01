@@ -1,4 +1,4 @@
-#include "renderer/ComputePipeline.h"
+#include "renderer/ImageComputePipeline.h"
 
 #include <vulkan/vulkan_raii.hpp>
 
@@ -9,7 +9,7 @@
 #include "core/VulkanContext.h"
 #include "core/SwapChainManager.h"
 
-ComputePipeline::ComputePipeline(VulkanContext& context, SwapChainManager& swapChainManager)
+ImageComputePipeline::ImageComputePipeline(VulkanContext& context, SwapChainManager& swapChainManager)
 	: context(context), swapChainManager(swapChainManager) {
 	try {
 		createComputeImage();
@@ -21,11 +21,11 @@ ComputePipeline::ComputePipeline(VulkanContext& context, SwapChainManager& swapC
 		throw;
 	}
 }
-ComputePipeline::~ComputePipeline() {
+ImageComputePipeline::~ImageComputePipeline() {
 	context.destroyVmaImage(targetImage, targetImageAllocation);
 }
 
-void ComputePipeline::createComputeImage() {
+void ImageComputePipeline::createComputeImage() {
 	vk::ImageCreateInfo computeImageInfo{
 		.imageType = vk::ImageType::e2D,
 		.format = vk::Format::eR8G8B8A8Unorm, // Might have to handle sRGB myself now?
@@ -48,7 +48,7 @@ void ComputePipeline::createComputeImage() {
 	targetImageAllocation = createImage.allocation;
 }
 
-void ComputePipeline::createComputeImageView() {
+void ImageComputePipeline::createComputeImageView() {
 	vk::ImageViewCreateInfo viewInfo{
 		.image = targetImage,
 		.viewType = vk::ImageViewType::e2D,
@@ -59,7 +59,7 @@ void ComputePipeline::createComputeImageView() {
 	targetImageView = vk::raii::ImageView(context.getDevice(), viewInfo);
 }
 
-void ComputePipeline::createComputePipeline() {
+void ImageComputePipeline::createComputePipeline() {
 	vk::raii::ShaderModule shaderModule = VulkanUtils::createShaderModule(context.getDevice(), FileUtils::readFile(EngineConfig::COMPUTE_SHADER_PATH));
 
 	vk::PipelineShaderStageCreateInfo shaderStageCreateInfo{
@@ -175,5 +175,5 @@ void ComputePipeline::createComputePipeline() {
 		.layout = pipelineLayout
 	};
 
-	computePipeline = vk::raii::Pipeline(context.getDevice(), nullptr, pipelineCreateInfo);
+	pipeline = vk::raii::Pipeline(context.getDevice(), nullptr, pipelineCreateInfo);
 }

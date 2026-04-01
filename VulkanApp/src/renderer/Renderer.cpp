@@ -6,19 +6,20 @@
 #include "core/VulkanContext.h"
 #include "core/SwapChainManager.h"
 #include "renderer/GraphicsPipeline.h"
-#include "renderer/ComputePipeline.h"
+#include "renderer/ImageComputePipeline.h"
 #include "renderer/Vertex.h"
 
 #include <glm/gtc/matrix_transform.hpp>
 
-Renderer::Renderer(VulkanContext& context, SwapChainManager& swapChainManager, GraphicsPipeline& graphicsPipeline, ComputePipeline& computePipeline)
-    : context(context), swapChainManager(swapChainManager), graphicsPipeline(graphicsPipeline), computePipeline(computePipeline), triangleMesh(context) {
+Renderer::Renderer(VulkanContext& context, SwapChainManager& swapChainManager, GraphicsPipeline& graphicsPipeline, ImageComputePipeline& imageComputePipeline)
+    : context(context), swapChainManager(swapChainManager), graphicsPipeline(graphicsPipeline), imageComputePipeline(imageComputePipeline) {
     createCommandPool();
     createCommandBuffers();
     createSyncObjects();
     createUniformBuffers();
     createDescriptorPool();
     createDescriptorSets();
+    loadMeshes();
 
     startTime = std::chrono::steady_clock::now();
 }
@@ -179,7 +180,7 @@ void Renderer::recordCommandBuffer(uint32_t imageIndex) {
 
     // Before starting rendering, transition the compute target image to COLOR_ATTACHMENT_OPTIMAL
     transitionImageLayout(
-        computePipeline.getImage(),
+        imageComputePipeline.getImage(),
         vk::ImageLayout::eUndefined,
         vk::ImageLayout::eColorAttachmentOptimal,
         {},                                                         // srcAccessMask (no need to wait for previous operations)
@@ -206,8 +207,7 @@ void Renderer::recordCommandBuffer(uint32_t imageIndex) {
     vk::ClearValue clearDepth = vk::ClearDepthStencilValue(1.0f, 0);
 
     vk::RenderingAttachmentInfo attachmentInfo = {
-        //.imageView = swapChainManager.getImageViews()[imageIndex],
-        .imageView = computePipeline.getImageView(),
+        .imageView = imageComputePipeline.getImageView(),
         .imageLayout = vk::ImageLayout::eColorAttachmentOptimal,
         .loadOp = vk::AttachmentLoadOp::eClear,
         .storeOp = vk::AttachmentStoreOp::eStore,
@@ -234,24 +234,26 @@ void Renderer::recordCommandBuffer(uint32_t imageIndex) {
 
     commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, graphicsPipeline.getGraphicsPipeline());
 
-    VkDeviceSize offset = 0;
-    vkCmdBindVertexBuffers(*commandBuffer, 0, 1, &triangleMesh.getVertexBuffer().buffer, &offset); // Raii doesn't play nicely with VMA so we make this call directly on the unwrapped command buffer
-    vkCmdBindIndexBuffer(*commandBuffer, triangleMesh.getIndexBuffer().buffer, offset, VK_INDEX_TYPE_UINT16);
+    for (auto& mesh : sceneObjects) {
+        VkDeviceSize offset = 0;
+        vkCmdBindVertexBuffers(*commandBuffer, 0, 1, &mesh->getVertexBuffer().buffer, &offset); // Raii doesn't play nicely with VMA so we make this call directly on the unwrapped command buffer
+        vkCmdBindIndexBuffer(*commandBuffer, mesh->getIndexBuffer().buffer, offset, VK_INDEX_TYPE_UINT16);
 
-    // Wow, we set the dynamic settings we specified earlier!
-    commandBuffer.setViewport(0, vk::Viewport(0.0f, 0.0f, static_cast<float>(swapChainManager.getExtent().width), static_cast<float>(swapChainManager.getExtent().height), 0.0f, 1.0f));
-    commandBuffer.setScissor(0, vk::Rect2D(vk::Offset2D(0, 0), swapChainManager.getExtent()));
+        // Wow, we set the dynamic settings we specified earlier!
+        commandBuffer.setViewport(0, vk::Viewport(0.0f, 0.0f, static_cast<float>(swapChainManager.getExtent().width), static_cast<float>(swapChainManager.getExtent().height), 0.0f, 1.0f));
+        commandBuffer.setScissor(0, vk::Rect2D(vk::Offset2D(0, 0), swapChainManager.getExtent()));
 
-    commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, graphicsPipeline.getPipelineLayout(), 0, *descriptorSets[frameIndex], nullptr);
+        commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, graphicsPipeline.getPipelineLayout(), 0, *descriptorSets[frameIndex], nullptr);
 
-    commandBuffer.drawIndexed(triangleMesh.getIndexCount(), 1, 0, 0, 0);
+        commandBuffer.drawIndexed(mesh->getIndexCount(), 1, 0, 0, 0);
+    }
 
     commandBuffer.endRendering();
 
     // NOW THE COMPUTE STAGE
 
     transitionImageLayout( // Transition compute image to read only
-        computePipeline.getImage(),
+        imageComputePipeline.getImage(),
         vk::ImageLayout::eColorAttachmentOptimal,
         vk::ImageLayout::eShaderReadOnlyOptimal,
         vk::AccessFlagBits2::eColorAttachmentWrite,
@@ -275,12 +277,12 @@ void Renderer::recordCommandBuffer(uint32_t imageIndex) {
         commandBuffer
     );
 
-    commandBuffer.bindPipeline(vk::PipelineBindPoint::eCompute, computePipeline.getComputePipeline());
+    commandBuffer.bindPipeline(vk::PipelineBindPoint::eCompute, imageComputePipeline.getComputePipeline());
     commandBuffer.bindDescriptorSets(
         vk::PipelineBindPoint::eCompute,
-        computePipeline.getPipelineLayout(),
+        imageComputePipeline.getPipelineLayout(),
         0,
-        { computePipeline.getDescriptorSets()[imageIndex] },
+        { imageComputePipeline.getDescriptorSets()[imageIndex] },
         nullptr
     );
     commandBuffer.dispatch(((swapChainManager.getExtent().width + 15) / 16.0), ((swapChainManager.getExtent().height+15)/16), 1);
@@ -378,8 +380,8 @@ void Renderer::createUniformBuffers() {
 void Renderer::updateUniformBuffer(uint32_t frameIndex, float timeElapsed) {
     MVP ubo{};
 
-    ubo.model = rotate(glm::mat4(1.0f), timeElapsed * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-    ubo.view = lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+    ubo.model = rotate(glm::mat4(1.0f), (timeElapsed * -glm::radians(45.f)), glm::vec3(0.0f, 0.0f, 1.0f));
+    ubo.view = lookAt(glm::vec3(3.5f, 0.0f, 0.5f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
     ubo.proj = glm::perspective(glm::radians(45.0f), static_cast<float>(swapChainManager.getExtent().width) / static_cast<float>(swapChainManager.getExtent().height), 0.1f, 10.0f);
 
     ubo.proj[1][1] *= -1;
@@ -433,4 +435,8 @@ void Renderer::createDescriptorSets() {
 
         context.getDevice().updateDescriptorSets(descriptorWrite, nullptr);
     }
+}
+
+void Renderer::loadMeshes() {
+    sceneObjects.push_back(std::make_unique<Mesh>("assets/models/lowpolytree.obj", context));
 }
