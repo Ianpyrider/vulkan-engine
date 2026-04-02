@@ -10,11 +10,19 @@ class VulkanContext;
 class SwapChainManager;
 class GraphicsPipeline;
 class ImageComputePipeline;
+class ParticleComputePipeline;
 
 class Renderer
 {
 public:
-	Renderer(VulkanContext& context, SwapChainManager& swapChainManager, GraphicsPipeline& graphicsPipeline, ImageComputePipeline& imageComputePipeline);
+	Renderer(
+		VulkanContext& context, 
+		SwapChainManager& swapChainManager, 
+		GraphicsPipeline& graphicsPipeline, 
+		ImageComputePipeline& imageComputePipeline,
+		GraphicsPipeline& particleGraphicsPipeline,
+		ParticleComputePipeline& particleComputePipeline
+	);
 	~Renderer();
 
 	void drawFrame();
@@ -25,6 +33,8 @@ private:
 	SwapChainManager& swapChainManager;
 	GraphicsPipeline& graphicsPipeline;
 	ImageComputePipeline& imageComputePipeline;
+	GraphicsPipeline& particleGraphicsPipeline;
+	ParticleComputePipeline& particleComputePipeline;
 
 	// Scene objects
 	std::vector<std::unique_ptr<Mesh>> sceneObjects;
@@ -50,12 +60,13 @@ private:
 	std::chrono::time_point<std::chrono::steady_clock> prevFrameTime;
 
 	// UBO
-	std::chrono::time_point<std::chrono::steady_clock> startTime;
 	std::vector<AllocatedBuffer> uniformBuffers;
-
+	
+	std::chrono::time_point<std::chrono::steady_clock> startTime;
 	vk::raii::DescriptorPool descriptorPool = nullptr;
 	std::vector<vk::raii::DescriptorSet> descriptorSets;
 
+	AllocatedBuffer snowUBO;
 	// Resizing support
 	bool framebufferResized = false;
 
@@ -67,7 +78,7 @@ private:
 	void createDescriptorSets();
 	void loadMeshes();
 
-	void updateUniformBuffer(uint32_t frameIndex, float timeElapsed);
+	void updateUniformBuffer(uint32_t frameIndex, float totalTime, float deltaTime);
 	void recordCommandBuffer(uint32_t imageIndex);
 	void transitionImageLayout(
 		vk::Image image,

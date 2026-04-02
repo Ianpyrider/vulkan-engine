@@ -60,7 +60,7 @@ void ImageComputePipeline::createComputeImageView() {
 }
 
 void ImageComputePipeline::createComputePipeline() {
-	vk::raii::ShaderModule shaderModule = VulkanUtils::createShaderModule(context.getDevice(), FileUtils::readFile(EngineConfig::COMPUTE_SHADER_PATH));
+	vk::raii::ShaderModule shaderModule = VulkanUtils::createShaderModule(context.getDevice(), FileUtils::readFile(EngineConfig::IMAGE_COMPUTE_SHADER_PATH));
 
 	vk::PipelineShaderStageCreateInfo shaderStageCreateInfo{
 		.stage = vk::ShaderStageFlagBits::eCompute,

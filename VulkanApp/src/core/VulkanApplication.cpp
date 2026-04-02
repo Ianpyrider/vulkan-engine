@@ -7,7 +7,10 @@
 #include "core/SwapChainManager.h"
 #include "renderer/GraphicsPipeline.h"
 #include "renderer/ImageComputePipeline.h"
+#include "renderer/ParticleComputePipeline.h"
 #include "renderer/Renderer.h"
+#include "renderer/Vertex.h"
+#include "renderer/Particle.h"
 
 #include <memory>
 
@@ -21,10 +24,9 @@ VulkanApplication::VulkanApplication() {
 
     vkSwapChainManager = std::make_unique<SwapChainManager>(*vkContext, window);
 
-    vkGraphicsPipeline = std::make_unique<GraphicsPipeline>(*vkContext, *vkSwapChainManager);
-    vkImageComputePipeline = std::make_unique<ImageComputePipeline>(*vkContext, *vkSwapChainManager);
+    initializePipelines();
 
-    vkRenderer = std::make_unique<Renderer>(*vkContext, *vkSwapChainManager, *vkGraphicsPipeline, *vkImageComputePipeline);
+    vkRenderer = std::make_unique<Renderer>(*vkContext, *vkSwapChainManager, *vkGraphicsPipeline, *vkImageComputePipeline, *vkParticleGraphicsPipeline, *vkParticleComputePipeline);
 }
 
 VulkanApplication::~VulkanApplication() {
@@ -69,5 +71,28 @@ void VulkanApplication::notifyFramebufferResized() {
 void VulkanApplication::framebufferResizeCallback(GLFWwindow* window, int width, int height) {
     auto app = reinterpret_cast<VulkanApplication*>(glfwGetWindowUserPointer(window));
     app->notifyFramebufferResized();
+}
+
+void VulkanApplication::initializePipelines() {
+    GraphicsPipeline::PipelineConfig geometryConfig{
+        .shaderPath = EngineConfig::SHADER_PATH,
+        .bindingDescription = Vertex::getBindingDescription(),
+        .attributeDescriptions = Vertex::getAttributeDescriptions(),
+        .topology = vk::PrimitiveTopology::eTriangleList
+    };
+
+    vkGraphicsPipeline = std::make_unique<GraphicsPipeline>(*vkContext, *vkSwapChainManager, geometryConfig);
+
+    GraphicsPipeline::PipelineConfig particleConfig{
+        .shaderPath = EngineConfig::PARTICLE_SHADER_PATH,
+        .bindingDescription = Particle::getBindingDescription(),
+        .attributeDescriptions = Particle::getAttributeDescriptions(),
+        .topology = vk::PrimitiveTopology::ePointList
+    };
+
+    vkParticleGraphicsPipeline = std::make_unique<GraphicsPipeline>(*vkContext, *vkSwapChainManager, particleConfig);
+
+    vkImageComputePipeline = std::make_unique<ImageComputePipeline>(*vkContext, *vkSwapChainManager);
+    vkParticleComputePipeline = std::make_unique<ParticleComputePipeline>(*vkContext, *vkSwapChainManager);
 }
 

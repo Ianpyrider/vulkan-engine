@@ -20,3 +20,8 @@ struct MVP {
     glm::mat4 view;
     glm::mat4 proj;
 };
+
+struct Snow_UBO {
+    glm::float32 deltaTime;
+    glm::float32 totalTime;
+};

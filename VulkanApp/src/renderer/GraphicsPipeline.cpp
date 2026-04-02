@@ -14,7 +14,8 @@
 #include <fstream>
 #include <glm/glm.hpp>
 
-GraphicsPipeline::GraphicsPipeline(VulkanContext& context, SwapChainManager& swapChainManager) : context(context), swapChainManager(swapChainManager) {
+GraphicsPipeline::GraphicsPipeline(VulkanContext& context, SwapChainManager& swapChainManager, const PipelineConfig& config)
+    : context(context), swapChainManager(swapChainManager), config(config) {
     createDescriptorSetLayout();
     createGraphicsPipeline();
 }
@@ -29,7 +30,7 @@ void GraphicsPipeline::createGraphicsPipeline() {
     auto& device = context.getDevice();
 
     // Create shaderModule, which takes in vertex and frag shaders here. Basically specify and program the pipeline steps you want to
-    vk::raii::ShaderModule shaderModule = VulkanUtils::createShaderModule(device, FileUtils::readFile(EngineConfig::SHADER_PATH));
+    vk::raii::ShaderModule shaderModule = VulkanUtils::createShaderModule(device, FileUtils::readFile(config.shaderPath));
 
     vk::PipelineShaderStageCreateInfo vertShaderStageInfo{
         .stage = vk::ShaderStageFlagBits::eVertex,
@@ -60,8 +61,8 @@ void GraphicsPipeline::createGraphicsPipeline() {
         .pDynamicStates = dynamicStates.data()
     };
 
-    auto bindingDescription = Vertex::getBindingDescription();
-    auto attributeDescriptions = Vertex::getAttributeDescriptions();
+    auto bindingDescription = config.bindingDescription;
+    auto attributeDescriptions = config.attributeDescriptions;
 
     vk::PipelineVertexInputStateCreateInfo vertexInputInfo{
         .vertexBindingDescriptionCount = 1,
@@ -71,7 +72,7 @@ void GraphicsPipeline::createGraphicsPipeline() {
     };
 
     vk::PipelineInputAssemblyStateCreateInfo inputAssembly{
-        .topology = vk::PrimitiveTopology::eTriangleList
+        .topology = config.topology
     };
 
     // Notice these are what we marked as dynamic state earlier, now specified in the viewport state

@@ -5,6 +5,7 @@ class SwapChainManager;
 class GraphicsPipeline;
 class Renderer;
 class ImageComputePipeline;
+class ParticleComputePipeline;
 
 struct GLFWwindow;
 struct GLFWmonitor;
@@ -23,8 +24,10 @@ private:
 	std::unique_ptr<VulkanContext> vkContext;
 	std::unique_ptr<SwapChainManager> vkSwapChainManager;
 	std::unique_ptr<GraphicsPipeline> vkGraphicsPipeline;
+	std::unique_ptr<GraphicsPipeline> vkParticleGraphicsPipeline;
 	std::unique_ptr<Renderer> vkRenderer;
 	std::unique_ptr<ImageComputePipeline> vkImageComputePipeline;
+	std::unique_ptr<ParticleComputePipeline> vkParticleComputePipeline;
 
 	GLFWwindow* window = nullptr;
 	GLFWmonitor* monitor = nullptr;
@@ -36,4 +39,6 @@ private:
 	void mainLoop();
 	void initWindow();
 	static void framebufferResizeCallback(GLFWwindow* window, int width, int height);
+
+	void initializePipelines();
 };

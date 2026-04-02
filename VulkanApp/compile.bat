@@ -14,9 +14,19 @@ echo --- Compiling Slang Shaders to: %OUT_DIR% ---
     -fvk-use-entrypoint-name -entry vertMain -entry fragMain ^
     -o "%OUT_DIR%/slang.spv"
 
+"C:/VulkanSDK/1.4.321.1/bin/slangc.exe" shaders/snow_shader.slang ^
+    -target spirv -profile spirv_1_4 -emit-spirv-directly ^
+    -fvk-use-entrypoint-name -entry vertMain -entry fragMain ^
+    -o "%OUT_DIR%/pcl_slang.spv"
+
 "C:/VulkanSDK/1.4.321.1/bin/slangc.exe" shaders/n64_compute.slang ^
     -target spirv -profile spirv_1_4 -emit-spirv-directly ^
     -fvk-use-entrypoint-name -entry compMain ^
-    -o "%OUT_DIR%/compute.spv"
+    -o "%OUT_DIR%/img_compute.spv"
+
+"C:/VulkanSDK/1.4.321.1/bin/slangc.exe" shaders/snow_compute.slang ^
+    -target spirv -profile spirv_1_4 -emit-spirv-directly ^
+    -fvk-use-entrypoint-name -entry compMain ^
+    -o "%OUT_DIR%/pcl_compute.spv"
 
 echo --- Shader Compilation Complete ---

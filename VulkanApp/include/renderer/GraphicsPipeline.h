@@ -8,7 +8,14 @@ class SwapChainManager;
 class GraphicsPipeline
 {
 public:
-	GraphicsPipeline(VulkanContext& context, SwapChainManager& swapChainManager);
+	struct PipelineConfig {
+		std::string shaderPath;
+		vk::VertexInputBindingDescription bindingDescription;
+		std::vector<vk::VertexInputAttributeDescription> attributeDescriptions;
+		vk::PrimitiveTopology topology;
+	};
+
+	GraphicsPipeline(VulkanContext& context, SwapChainManager& swapChainManager, const PipelineConfig& config);
 	~GraphicsPipeline() = default;
 
 	vk::raii::Pipeline& getGraphicsPipeline() { return graphicsPipeline; }
@@ -17,6 +24,7 @@ public:
 private:
 	VulkanContext& context;
 	SwapChainManager& swapChainManager;
+	const PipelineConfig& config;
 
 	vk::raii::PipelineLayout pipelineLayout = nullptr;
 	vk::raii::DescriptorSetLayout descriptorSetLayout = nullptr;

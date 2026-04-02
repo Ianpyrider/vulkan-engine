@@ -7,12 +7,19 @@
 #include "core/SwapChainManager.h"
 #include "renderer/GraphicsPipeline.h"
 #include "renderer/ImageComputePipeline.h"
+#include "renderer/ParticleComputePipeline.h"
 #include "renderer/Vertex.h"
 
 #include <glm/gtc/matrix_transform.hpp>
 
-Renderer::Renderer(VulkanContext& context, SwapChainManager& swapChainManager, GraphicsPipeline& graphicsPipeline, ImageComputePipeline& imageComputePipeline)
-    : context(context), swapChainManager(swapChainManager), graphicsPipeline(graphicsPipeline), imageComputePipeline(imageComputePipeline) {
+Renderer::Renderer(VulkanContext& context, SwapChainManager& swapChainManager, GraphicsPipeline& graphicsPipeline, ImageComputePipeline& imageComputePipeline, GraphicsPipeline& particleGraphicsPipeline, ParticleComputePipeline& particleComputePipeline)
+    : context(context), 
+    swapChainManager(swapChainManager), 
+    graphicsPipeline(graphicsPipeline), 
+    imageComputePipeline(imageComputePipeline),
+    particleGraphicsPipeline(particleGraphicsPipeline),
+    particleComputePipeline(particleComputePipeline) {
+
     createCommandPool();
     createCommandBuffers();
     createSyncObjects();
@@ -43,11 +50,14 @@ void Renderer::drawFrame() {
     }
 
     if (warmUpFrames >= 2) {
-        auto curFrameTime = std::chrono::steady_clock::now();
+        std::chrono::time_point<std::chrono::steady_clock> curFrameTime = std::chrono::steady_clock::now();
 
         std::chrono::duration<float> totalTime = curFrameTime - startTime;
+        std::chrono::duration<float> deltaSeconds = curFrameTime - prevFrameTime;
+        prevFrameTime = curFrameTime;
 
-        updateUniformBuffer(frameIndex, totalTime.count());
+        updateUniformBuffer(frameIndex, totalTime.count(), deltaSeconds.count());
+        particleComputePipeline.updateParticleUBO(totalTime.count(), deltaSeconds.count());
 
         if (EngineConfig::PRINT_GPU_PROFILING) {
             // Note: With the following line uncommented, performance can be more consistent. Probably because it acts as a throttle? Fifo over mailbox should help this but doesn't entirely I think.
@@ -57,8 +67,6 @@ void Renderer::drawFrame() {
             frameDeltasI++;
             frameDeltasI = frameDeltasI % numDeltas;
 
-            std::chrono::duration<float> deltaSeconds = curFrameTime - prevFrameTime;
-            prevFrameTime = curFrameTime;
             timeSinceLastPrint += deltaSeconds.count();
 
             if (timeSinceLastPrint > 1.0) {
@@ -178,6 +186,34 @@ void Renderer::recordCommandBuffer(uint32_t imageIndex) {
 
     commandBuffer.writeTimestamp2(vk::PipelineStageFlagBits2::eTopOfPipe, context.getTimestampQueryPool(), startIndex);
 
+    commandBuffer.bindPipeline(vk::PipelineBindPoint::eCompute, particleComputePipeline.getComputePipeline());
+    commandBuffer.bindDescriptorSets(
+        vk::PipelineBindPoint::eCompute,
+        particleComputePipeline.getPipelineLayout(),
+        0,
+        { particleComputePipeline.getDescriptorSets()[0] },
+        nullptr
+    );
+    commandBuffer.dispatch((EngineConfig::PARTICLE_COUNT + 255) / 256, 1, 1);
+
+    vk::BufferMemoryBarrier2 barrier = {
+        .srcStageMask = vk::PipelineStageFlagBits2::eComputeShader,
+        .srcAccessMask = vk::AccessFlagBits2::eShaderWrite,
+        .dstStageMask = vk::PipelineStageFlagBits2::eVertexAttributeInput,
+        .dstAccessMask = vk::AccessFlagBits2::eVertexAttributeRead,
+        .buffer = particleComputePipeline.getParticleBuffer().buffer,
+        .offset = 0,
+        .size = VK_WHOLE_SIZE
+    };
+
+    vk::DependencyInfo dependencyInfo = {
+        .dependencyFlags = {},
+        .bufferMemoryBarrierCount = 1,
+        .pBufferMemoryBarriers = &barrier
+    };
+
+    commandBuffer.pipelineBarrier2(dependencyInfo);
+
     // Before starting rendering, transition the compute target image to COLOR_ATTACHMENT_OPTIMAL
     transitionImageLayout(
         imageComputePipeline.getImage(),
@@ -232,21 +268,33 @@ void Renderer::recordCommandBuffer(uint32_t imageIndex) {
 
     commandBuffer.beginRendering(renderingInfo); // WAHOOOOOOOOOOOOOOOOOOOOOOOOOOOO
 
+    // Scene objects
+
     commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, graphicsPipeline.getGraphicsPipeline());
+
+    // Wow, we set the dynamic settings we specified earlier!
+    commandBuffer.setViewport(0, vk::Viewport(0.0f, 0.0f, static_cast<float>(swapChainManager.getExtent().width), static_cast<float>(swapChainManager.getExtent().height), 0.0f, 1.0f));
+    commandBuffer.setScissor(0, vk::Rect2D(vk::Offset2D(0, 0), swapChainManager.getExtent()));
+
+    commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, graphicsPipeline.getPipelineLayout(), 0, *descriptorSets[frameIndex], nullptr);
 
     for (auto& mesh : sceneObjects) {
         VkDeviceSize offset = 0;
         vkCmdBindVertexBuffers(*commandBuffer, 0, 1, &mesh->getVertexBuffer().buffer, &offset); // Raii doesn't play nicely with VMA so we make this call directly on the unwrapped command buffer
         vkCmdBindIndexBuffer(*commandBuffer, mesh->getIndexBuffer().buffer, offset, VK_INDEX_TYPE_UINT16);
 
-        // Wow, we set the dynamic settings we specified earlier!
-        commandBuffer.setViewport(0, vk::Viewport(0.0f, 0.0f, static_cast<float>(swapChainManager.getExtent().width), static_cast<float>(swapChainManager.getExtent().height), 0.0f, 1.0f));
-        commandBuffer.setScissor(0, vk::Rect2D(vk::Offset2D(0, 0), swapChainManager.getExtent()));
-
-        commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, graphicsPipeline.getPipelineLayout(), 0, *descriptorSets[frameIndex], nullptr);
-
         commandBuffer.drawIndexed(mesh->getIndexCount(), 1, 0, 0, 0);
     }
+
+    // Snow
+
+    commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, particleGraphicsPipeline.getGraphicsPipeline());
+
+    commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, particleGraphicsPipeline.getPipelineLayout(), 0, *descriptorSets[frameIndex], nullptr);
+
+    VkDeviceSize offset = 0;
+    vkCmdBindVertexBuffers(*commandBuffer, 0, 1, &particleComputePipeline.getParticleBuffer().buffer, &offset);
+    commandBuffer.draw(EngineConfig::PARTICLE_COUNT, 1, 0, 0);
 
     commandBuffer.endRendering();
 
@@ -333,6 +381,7 @@ void Renderer::transitionImageLayout(
             .layerCount = 1
         }
     };
+
     vk::DependencyInfo dependencyInfo = {
         .dependencyFlags = {},
         .imageMemoryBarrierCount = 1,
@@ -377,10 +426,10 @@ void Renderer::createUniformBuffers() {
     }
 }
 
-void Renderer::updateUniformBuffer(uint32_t frameIndex, float timeElapsed) {
+void Renderer::updateUniformBuffer(uint32_t frameIndex, float totalTime, float deltaTime) {
     MVP ubo{};
 
-    ubo.model = rotate(glm::mat4(1.0f), (timeElapsed * -glm::radians(45.f)), glm::vec3(0.0f, 0.0f, 1.0f));
+    ubo.model = rotate(glm::mat4(1.0f), (totalTime * -glm::radians(45.f)), glm::vec3(0.0f, 0.0f, 1.0f));
     ubo.view = lookAt(glm::vec3(3.5f, 0.0f, 0.5f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
     ubo.proj = glm::perspective(glm::radians(45.0f), static_cast<float>(swapChainManager.getExtent().width) / static_cast<float>(swapChainManager.getExtent().height), 0.1f, 10.0f);
 

@@ -1,11 +1,13 @@
 #include "renderer/Vertex.h"
 
-std::array<vk::VertexInputAttributeDescription, 2> Vertex::getAttributeDescriptions() {
+std::vector<vk::VertexInputAttributeDescription> Vertex::getAttributeDescriptions() {
     {
-        return {
+        std::vector descriptions {
             vk::VertexInputAttributeDescription(0, 0, vk::Format::eR32G32B32Sfloat, offsetof(Vertex, pos)),
             vk::VertexInputAttributeDescription(1, 0, vk::Format::eR32G32B32Sfloat, offsetof(Vertex, color))
         };
+
+        return descriptions;
     }
 }
 
