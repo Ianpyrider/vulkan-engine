@@ -25,16 +25,17 @@ void compMain(uint3 threadId: SV_DispatchThreadID) {
     float3 pos = particlesBuffer[index].position.xyz;
     float3 baseVel = particlesBuffer[index].velocity.xyz;
 
-    float windX = sin(pos.z * 1.5 + ubo.totalTime) * 0.4;
-    float windY = cos(pos.z * 1.2 + ubo.totalTime * 0.8) * 0.4;
+    float windX = sin(pos.z * 2.0 + ubo.totalTime) * 0.2;
+    float windY = cos(pos.z * 1.5 + ubo.totalTime * 0.8) * 0.2;
 
-    pos.x += windX * ubo.deltaTime;
-    pos.y += windY * ubo.deltaTime;
-    pos.z += baseVel.z * ubo.deltaTime;
+    float3 globalWind = float3(1.0, 0.5, 0.0);
 
-    float horizontalBounds = 15.0;
-    float skyZ = 10.0;
-    float groundZ = -2.0; 
+    float3 currentVel = baseVel + globalWind + float3(windX, windY, 0.0);
+    pos += currentVel * ubo.deltaTime;
+
+    float horizontalBounds = 4.0;
+    float skyZ = 5.0;
+    float groundZ = -3.0;
 
     if (pos.z < groundZ) pos.z = skyZ;
 

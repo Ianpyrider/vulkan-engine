@@ -66,7 +66,6 @@ private:
 	vk::raii::DescriptorPool descriptorPool = nullptr;
 	std::vector<vk::raii::DescriptorSet> descriptorSets;
 
-	AllocatedBuffer snowUBO;
 	// Resizing support
 	bool framebufferResized = false;
 

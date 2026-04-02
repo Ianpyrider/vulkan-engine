@@ -429,8 +429,18 @@ void Renderer::createUniformBuffers() {
 void Renderer::updateUniformBuffer(uint32_t frameIndex, float totalTime, float deltaTime) {
     MVP ubo{};
 
-    ubo.model = rotate(glm::mat4(1.0f), (totalTime * -glm::radians(45.f)), glm::vec3(0.0f, 0.0f, 1.0f));
-    ubo.view = lookAt(glm::vec3(3.5f, 0.0f, 0.5f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+    ubo.model = glm::mat4(1.0f);
+    
+    // Orbit camera
+    float radius = 3.5f;
+    glm::vec3 center = glm::vec3(0, 0, 0.2f);
+
+    float orbitSpeed = 0.2f;
+    float cameraX = sin(totalTime * orbitSpeed) * radius;
+    float cameraY = cos(totalTime * orbitSpeed) * radius;
+
+    ubo.view = lookAt(glm::vec3(cameraX, cameraY, 0.0f), center, glm::vec3(0.0f, 0.0f, 1.0f));
+
     ubo.proj = glm::perspective(glm::radians(45.0f), static_cast<float>(swapChainManager.getExtent().width) / static_cast<float>(swapChainManager.getExtent().height), 0.1f, 10.0f);
 
     ubo.proj[1][1] *= -1;

@@ -17,6 +17,11 @@ ParticleComputePipeline::ParticleComputePipeline(VulkanContext& context, SwapCha
 	createPipeline();
 }
 
+ParticleComputePipeline::~ParticleComputePipeline() {
+	vmaDestroyBuffer(context.getVmaAllocator(), uniformBuffer.buffer, uniformBuffer.allocation);
+	vmaDestroyBuffer(context.getVmaAllocator(), particleBuffer.buffer, particleBuffer.allocation);
+}
+
 void ParticleComputePipeline::generateBuffers() {
 	uniformBuffer = context.createVmaBuffer(
 		sizeof(Snow_UBO),
@@ -26,8 +31,8 @@ void ParticleComputePipeline::generateBuffers() {
 	);
 
 	std::default_random_engine rndEngine((unsigned)time(nullptr));
-	std::uniform_real_distribution<float> xyDist(-15.0f, 15.0f);
-	std::uniform_real_distribution<float> zDist(-2.0f, 10.0f);
+	std::uniform_real_distribution<float> xyDist(-4.0f, 4.0f);
+	std::uniform_real_distribution<float> zDist(-3.0f, 5.0f);
 	std::uniform_real_distribution<float> gravityDist(-0.8f, -0.3f);
 
 	std::vector<Particle> particles(EngineConfig::PARTICLE_COUNT);

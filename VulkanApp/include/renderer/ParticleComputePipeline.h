@@ -11,7 +11,7 @@ class ParticleComputePipeline
 {
 public:
 	ParticleComputePipeline(VulkanContext& context, SwapChainManager& swapChainManager);
-	~ParticleComputePipeline() = default;
+	~ParticleComputePipeline();
 
 	vk::raii::Pipeline& getComputePipeline() { return pipeline; }
 	vk::raii::PipelineLayout& getPipelineLayout() { return pipelineLayout; }
@@ -28,9 +28,9 @@ private:
 	vk::raii::Pipeline pipeline = nullptr;
 	vk::raii::PipelineLayout pipelineLayout = nullptr;
 
+	vk::raii::DescriptorPool descriptorPool = nullptr;
 	vk::raii::DescriptorSets computeDescriptorSets{ nullptr };
 	vk::raii::DescriptorSetLayout computeDescriptorSetLayout = nullptr;
-	vk::raii::DescriptorPool descriptorPool = nullptr;
 	
 	AllocatedBuffer uniformBuffer;
 	AllocatedBuffer particleBuffer;
