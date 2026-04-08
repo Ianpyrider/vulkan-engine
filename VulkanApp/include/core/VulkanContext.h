@@ -20,12 +20,13 @@ public:
     vk::raii::Queue& getPresentQueue() { return presentQueue; }
     VmaAllocator& getVmaAllocator() { return allocator; }
     vk::raii::QueryPool& getTimestampQueryPool() { return timestampQueryPool; }
+    float getTimestampPeriod() const { return physicalDevice.getProperties().limits.timestampPeriod; }
     AllocatedBuffer createVmaBuffer(VkDeviceSize size, VkBufferUsageFlags bufferFlags, VmaAllocationCreateFlags allocationFlags, VmaMemoryUsage usage);
     void copyBuffer(AllocatedBuffer src, AllocatedBuffer dst, vk::DeviceSize size);
     AllocatedImage createVmaImage(vk::ImageCreateInfo info, VmaAllocationCreateInfo allocCreateInfo);
     void destroyVmaImage(vk::Image& image, VmaAllocation& allocation);
     void resetQueryPool(uint32_t frameIndex);
-    double getRenderPassTime(uint32_t frameIndex);
+    std::vector<uint64_t> getFrameTimestamps(uint32_t frameIndex);
 private:
     void createInstance();
     void setupDebugMessenger();

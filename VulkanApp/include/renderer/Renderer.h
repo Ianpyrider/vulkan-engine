@@ -3,6 +3,7 @@
 #include "shared/VulkanInclude.h"
 #include "shared/Types.h"
 #include "renderer/Mesh.h"
+#include "renderer/GpuProfiler.h"
 
 #include <chrono>
 
@@ -68,6 +69,8 @@ private:
 
 	// Resizing support
 	bool framebufferResized = false;
+
+	GpuProfiler profiler;
 
 	void createCommandPool();
 	void createCommandBuffers();

@@ -386,7 +386,7 @@ void VulkanContext::createQueryPools() {
     vk::QueryPoolCreateInfo timestampPoolInfo;
     timestampPoolInfo.sType = vk::StructureType::eQueryPoolCreateInfo;
     timestampPoolInfo.queryType = vk::QueryType::eTimestamp;
-    timestampPoolInfo.queryCount = static_cast<uint32_t>(timestamps.size());
+    timestampPoolInfo.queryCount = static_cast<uint32_t>(EngineConfig::NUM_TIMESTAMPS);
 
     timestampQueryPool = device.createQueryPool(timestampPoolInfo);
 }
@@ -396,7 +396,7 @@ void VulkanContext::resetQueryPool(uint32_t frameIndex) {
     (*device).resetQueryPool(*timestampQueryPool, startIndex, EngineConfig::TIMESTAMPS_PER_FRAME);
 }
 
-double VulkanContext::getRenderPassTime(uint32_t frameIndex) {
+std::vector<uint64_t> VulkanContext::getFrameTimestamps(uint32_t frameIndex) {
     uint32_t startIndex = frameIndex * EngineConfig::TIMESTAMPS_PER_FRAME;
 
     vk::Result result = (*device).getQueryPoolResults(
@@ -411,8 +411,8 @@ double VulkanContext::getRenderPassTime(uint32_t frameIndex) {
 
     assert(result == vk::Result::eSuccess);
 
-    vk::PhysicalDeviceLimits const& deviceLimits = physicalDevice.getProperties().limits;
-    float deltaInMS = float(timestamps[startIndex+1] - timestamps[startIndex]) * deviceLimits.timestampPeriod / 1000000.0f;
-
-    return deltaInMS;
+    return std::vector<uint64_t>(
+        timestamps.begin() + startIndex,
+        timestamps.begin() + startIndex + EngineConfig::TIMESTAMPS_PER_FRAME
+    );
 }

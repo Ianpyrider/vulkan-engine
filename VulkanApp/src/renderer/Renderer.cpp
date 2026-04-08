@@ -18,7 +18,8 @@ Renderer::Renderer(VulkanContext& context, SwapChainManager& swapChainManager, G
     graphicsPipeline(graphicsPipeline), 
     imageComputePipeline(imageComputePipeline),
     particleGraphicsPipeline(particleGraphicsPipeline),
-    particleComputePipeline(particleComputePipeline) {
+    particleComputePipeline(particleComputePipeline),
+    profiler(context.getTimestampPeriod()) {
 
     createCommandPool();
     createCommandBuffers();
@@ -61,30 +62,15 @@ void Renderer::drawFrame() {
 
         if (EngineConfig::PRINT_GPU_PROFILING) {
             // Note: With the following line uncommented, performance can be more consistent. Probably because it acts as a throttle? Fifo over mailbox should help this but doesn't entirely I think.
+            // (this line is no longer how we structure things but I do want to check back on this)
             // printf("[GPU Profiling] Draw time: %fms\n", context.getRenderPassTime(frameIndex));
 
-            frameDeltas[frameDeltasI] = context.getRenderPassTime(frameIndex);
-            frameDeltasI++;
-            frameDeltasI = frameDeltasI % numDeltas;
+            profiler.update(context.getFrameTimestamps(frameIndex));
 
             timeSinceLastPrint += deltaSeconds.count();
 
             if (timeSinceLastPrint > 1.0) {
-                float average = 0.0;
-                float max = 0.0;
-
-                for (auto frameDelta : frameDeltas) {
-                    average += frameDelta;
-
-                    if (max < frameDelta) {
-                        max = frameDelta;
-                    }
-                }
-
-                average = average / numDeltas;
-
-                printf("[GPU Profiling] Average: %fms, Max: %fms\n", average, max);
-
+                profiler.printResults();
                 timeSinceLastPrint -= 1.0;
             }
         }
@@ -196,6 +182,8 @@ void Renderer::recordCommandBuffer(uint32_t imageIndex) {
     );
     commandBuffer.dispatch((EngineConfig::PARTICLE_COUNT + 255) / 256, 1, 1);
 
+    commandBuffer.writeTimestamp2(vk::PipelineStageFlagBits2::eComputeShader, context.getTimestampQueryPool(), startIndex+1);
+
     vk::BufferMemoryBarrier2 barrier = {
         .srcStageMask = vk::PipelineStageFlagBits2::eComputeShader,
         .srcAccessMask = vk::AccessFlagBits2::eShaderWrite,
@@ -268,6 +256,8 @@ void Renderer::recordCommandBuffer(uint32_t imageIndex) {
 
     commandBuffer.beginRendering(renderingInfo); // WAHOOOOOOOOOOOOOOOOOOOOOOOOOOOO
 
+    commandBuffer.writeTimestamp2(vk::PipelineStageFlagBits2::eTopOfPipe, context.getTimestampQueryPool(), startIndex + 2);
+
     // Scene objects
 
     commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, graphicsPipeline.getGraphicsPipeline());
@@ -286,7 +276,11 @@ void Renderer::recordCommandBuffer(uint32_t imageIndex) {
         commandBuffer.drawIndexed(mesh->getIndexCount(), 1, 0, 0, 0);
     }
 
+    commandBuffer.writeTimestamp2(vk::PipelineStageFlagBits2::eColorAttachmentOutput, context.getTimestampQueryPool(), startIndex+3);
+
     // Snow
+
+    commandBuffer.writeTimestamp2(vk::PipelineStageFlagBits2::eTopOfPipe, context.getTimestampQueryPool(), startIndex + 4);
 
     commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, particleGraphicsPipeline.getGraphicsPipeline());
 
@@ -296,8 +290,10 @@ void Renderer::recordCommandBuffer(uint32_t imageIndex) {
     vkCmdBindVertexBuffers(*commandBuffer, 0, 1, &particleComputePipeline.getParticleBuffer().buffer, &offset);
     commandBuffer.draw(EngineConfig::PARTICLE_COUNT, 1, 0, 0);
 
-    commandBuffer.endRendering();
+    commandBuffer.writeTimestamp2(vk::PipelineStageFlagBits2::eColorAttachmentOutput, context.getTimestampQueryPool(), startIndex+5);
 
+    commandBuffer.endRendering();
+    
     // NOW THE COMPUTE STAGE
 
     transitionImageLayout( // Transition compute image to read only
@@ -325,6 +321,8 @@ void Renderer::recordCommandBuffer(uint32_t imageIndex) {
         commandBuffer
     );
 
+    commandBuffer.writeTimestamp2(vk::PipelineStageFlagBits2::eTopOfPipe, context.getTimestampQueryPool(), startIndex + 6);
+
     commandBuffer.bindPipeline(vk::PipelineBindPoint::eCompute, imageComputePipeline.getComputePipeline());
     commandBuffer.bindDescriptorSets(
         vk::PipelineBindPoint::eCompute,
@@ -334,6 +332,8 @@ void Renderer::recordCommandBuffer(uint32_t imageIndex) {
         nullptr
     );
     commandBuffer.dispatch(((swapChainManager.getExtent().width + 15) / 16.0), ((swapChainManager.getExtent().height+15)/16), 1);
+
+    commandBuffer.writeTimestamp2(vk::PipelineStageFlagBits2::eComputeShader, context.getTimestampQueryPool(), startIndex + 7);
 
     transitionImageLayout(
         swapChainManager.getImages()[imageIndex],              
@@ -347,7 +347,7 @@ void Renderer::recordCommandBuffer(uint32_t imageIndex) {
         commandBuffer
     );
 
-    commandBuffer.writeTimestamp2(vk::PipelineStageFlagBits2::eBottomOfPipe, context.getTimestampQueryPool(), startIndex+1);
+    commandBuffer.writeTimestamp2(vk::PipelineStageFlagBits2::eBottomOfPipe, context.getTimestampQueryPool(), startIndex+8);
 
     commandBuffer.end();
 }
