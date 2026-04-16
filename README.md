@@ -61,18 +61,18 @@ Razer Blade w/ Nvidia RTX 2070 using mailbox presentation
 
 - Learning Vulkan and building an engine in ~1.5 months
 	- Easily the most challenging and rewarding part of this project was maintaining a strong mental model of the Vulkan specification's various moving parts and how they relate to each other. Often my ability to progress felt directly proportional to how deeply I understood the API, since breaking away from the tutorial and building my own features required me to implement updates to the pipeline end-to-end. 
-- Integrating my initial compute pipeline with an offscreen image
-	- This combined a pretty wide variety of elements I hadn't used yet and had to combine in a novel way based on documentation instead of a tutorial. I had to learn descriptor set layouts, pools, and sets, uniform images allocated via VMA, a new type of shader, offscreen rendering, and image layout transitions/barriers, all on top of setting up a compute pipeline. 
+- Post-processing Compute Pipeline using an offscreen image
+	- This combined a pretty wide variety of elements I hadn't used yet and had to combine in a novel way based on documentation instead of a tutorial. I had to learn descriptor set layouts, pools, and sets, uniform images allocated via VMA, a new type of shader, offscreen rendering, and image layout transitions/barriers, all on top of setting up a compute pipeline and managing sync. 
 	- I figured since I had dealt with uniform buffers in OpenGL and used many of the other elements, it would work out fine, but I probably could've done it a lot faster if I had taken each step one at a time instead of learning them all at once and fighting validation layers. That said, I walked away from this particular task feeling like a grisled veteran.
 - App Architecture
-	- Vulkan docs doesn't provide much guidance on structuring projects like this: The initial tutorial is all on one doc and the only guide they provide is a modern game engine architecture tutorial that felt pretty far beyond the scope of what I need right now. Luckily I have no shortage of experience with organizing codebases and system design, but even then I had to spend a lot of time making sure my mental models were solid in order to actually make a decent structure. 
+	- Vulkan docs doesn't provide much guidance on structuring projects like this: The initial tutorial is all one file and the only guide they provide for structure is a modern game engine architecture tutorial that felt pretty far beyond the scope of what I need right now. Luckily I have no shortage of experience with organizing codebases and system design! Even so, it took a lot of time to make sure my mental models were solid and transform them into a decent structure. 
 	- I think my structure is solid for the current scope of the project, but I still spend a good amount of time refactoring, so if I build something more substantial with this as a baseline I'll probably use that modern engine tutorial.  
 
 ## Ideas for Engine Optimization
 
 - Performance
 	- Currently we use 24-bit colors and crush them to their 15-bit counterparts via a compute shader, but I wonder if I can configure Vulkan to pass 15-bit colors to the fragment shader, bypassing the need for this step and reducing the volume of color data we have to pass across the pipeline
-	- Depth-based culling of snow particles
+	- Occlusion/Frustum culling for snow particles
 - Architecture
 	- Renderer is too long/complex right now, I need a class that allows me to write to the command buffer in pipeline-based chunks instead of all in one call
 	- Too much falls under the responsibility of VulkanContext, especially when integrating new features, so I'll have to break down engine-wide initialization into logical chunks
