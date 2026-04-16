@@ -31,8 +31,8 @@ Razer Blade w/ Nvidia RTX 2070 using mailbox presentation
 - Observed frame time maxima are always similar to averages, indicating no frame-to-frame bottlenecks
 
 ### Bottleneck Analysis: 2D Compute Pass
-- It seems like this could be for a couple of reasons: Using eGeneral for my swapchain image (making it a suboptimal write target), shader math bottlenecks (which seems unlikely, since the shader math is only a few basic steps), or maybe suboptimal worker pooling (also unlikely, 16x16 seems to be pretty standard)
-- I had the shader directly output its input values (skipping the math) and it remained the bottleneck at ~0.025ms, supporting my layout theory
+- It seems like this could be for a couple of reasons: Using eGeneral for my swapchain image (making it a suboptimal write target), shader math bottlenecks (which seems unlikely, since the shader math is only a few basic steps, but doing pixel chunking here is definitely suboptimal), or maybe suboptimal worker pooling (also unlikely, 16x16 seems to be pretty standard)
+- I had the shader directly output its input values (skipping the math) and it remained the bottleneck at ~0.025ms, supporting my layout theory (though if I operated on a lower res image instead of chunking this would also improve)
 - Potential fixes: Combine into the fragment shader and bypass eGeneral entirely, or do some staging buffer-like trickery
 - This bottleneck doesn't scale with anything except for screen size, so I feel like 0.03ms is perfectly acceptable for now (and likely forever). I also like that our post-processing can be run in parallel with the fragment shader for the next frame.
 
@@ -49,7 +49,9 @@ Razer Blade w/ Nvidia RTX 2070 using mailbox presentation
 
 - Applies N64-like post processing operations to an offscreen image via another custom shader, outputting to the swapchain
 - Color quantization: Crushes existing colors into their 15-bit counterparts
-- Bayer Dithering: Applies a tiled 8x8 Bayer matrix to the image, keeping with the retro style and concealing color banding as suggested by official N64 programming documentation (https://ultra64.ca/files/documentation/online-manuals/man/pro-man/pro15/index15.5.html)
+- Pixel Chunking: Groups together neighboring pixels to mimic the look from lower-resolution screens
+	- I included this in the post-processing shader instead of operating on a lower resolution image directly because I don't know which subset of n64-style effects I'll end up using, and this is a good way to see what it looks like first
+- Bayer Dithering: Applies a tiled 8x8 Bayer matrix to the image, keeping with the retro style and concealing color banding from quantization as suggested by official N64 programming documentation (https://ultra64.ca/files/documentation/online-manuals/man/pro-man/pro15/index15.5.html)
 	- The Bayer matrix definitely captured the look I wanted best, but the manual also mentions a couple more approaches I tested or want to try out, sources/info which I'll list here:
 		- Magic Square: https://www.cg.tuwien.ac.at/courses/CG2/SS2002/RasterGraphics.pdf (turns out you can probably just use any magic square, which is funny)
 		- Bayer: https://en.wikipedia.org/wiki/Bayer_filter
@@ -72,7 +74,8 @@ Razer Blade w/ Nvidia RTX 2070 using mailbox presentation
 
 - Performance
 	- Currently we use 24-bit colors and crush them to their 15-bit counterparts via a compute shader, but I wonder if I can configure Vulkan to pass 15-bit colors to the fragment shader, bypassing the need for this step and reducing the volume of color data we have to pass across the pipeline
-	- Occlusion/Frustum culling for snow particles
+	- I'm doing pixel chunking in post-processing, where I could be just operating on a lower-res image and doing a simple upscale later. 
+ 	- Occlusion/Frustum culling for snow particles
 - Architecture
 	- Renderer is too long/complex right now, I need a class that allows me to write to the command buffer in pipeline-based chunks instead of all in one call
 	- Too much falls under the responsibility of VulkanContext, especially when integrating new features, so I'll have to break down engine-wide initialization into logical chunks
