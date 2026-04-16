@@ -9,25 +9,32 @@ https://github.com/user-attachments/assets/210e7ea4-8985-48f2-a35f-1aedb52068a5
 ## Engine Features
 
 - Languages: C++, Slang
-- Build System: CMake
-- Vulkan 1.4 using modern API features: RAII, Dynamic Rendering, Sync2
+- Vulkan 1.4
+	- RAII, Dynamic Rendering, Sync2
+ 	- Standard optimizations: Frames in flight, staging buffers, dynamic device feature polling
 - Vulkan Memory Allocator (VMA) for more efficient/safe memory allocation
-- Granular GPU Profiling via timestamp queries for identifying performance bottlenecks 
+- GPU Profiling via command buffer timestamp queries for identifying performance bottlenecks
+- Build System: CMake
 - Robust architecture emphasizing separation of concerns in idiomatic Vulkan, supporting all manner of future development and developers!
 
 ## Performance Metrics
 
-- Average total frame time (Razer Blade w/ Nvidia RTX 2070 using mailbox presentation): ~0.05ms = 20k FPS
+### Profiling (Average + Maximum measured across each 1s)
+Razer Blade w/ Nvidia RTX 2070 using mailbox presentation
+
+- Average total frame time: ~0.05ms (20,000 FPS)
 	- 3D Compute: ~0.005ms
 	- Mesh Graphics Pass: ~0.003ms
 	- Snow Graphics Pass: ~0.002ms
 	- 2D Compute: ~0.03ms
-- Summing the individual parts and comparing to the total gives us a ceiling of ~0.01ms for sync elements like barriers, meaning commands are waiting on one another negligibly! 
-- The 2D compute N64-style pass is currently the bottleneck
-	- It seems like this could be for a couple of reasons: Using eGeneral for my swapchain image, making it a suboptimal write target, my shader math being slow (which seems unlikely, since the shader math is only a few steps), or maybe suboptimal worker pooling (but 16x16 seems to be a solid standard)
-	- I had the shader directly output its input values, skipping the math, and this shader remained the bottleneck at ~0.025ms, supporting my layout theory
-	- Potential fixes: Combine into the fragment shader and bypass eGeneral entirely, or do some staging buffer-like trickery
-	- This bottleneck doesn't scale with anything except for screen size, so I feel like 0.03ms is perfectly acceptable for now (and likely forever). I also like that our post-processing can be run in parallel with the fragment shader for the next frame.
+- Sync Overhead: ~0.01ms ceiling (based on the difference between the total and the individual parts), meaning commands are waiting on one another negligibly each frame!
+- Observed frame time maxima are always similar to averages, indicating no frame-to-frame bottlenecks
+
+### Bottleneck Analysis: 2D Compute Pass
+- It seems like this could be for a couple of reasons: Using eGeneral for my swapchain image (making it a suboptimal write target), shader math bottlenecks (which seems unlikely, since the shader math is only a few basic steps), or maybe suboptimal worker pooling (also unlikely, 16x16 seems to be pretty standard)
+- I had the shader directly output its input values (skipping the math) and it remained the bottleneck at ~0.025ms, supporting my layout theory
+- Potential fixes: Combine into the fragment shader and bypass eGeneral entirely, or do some staging buffer-like trickery
+- This bottleneck doesn't scale with anything except for screen size, so I feel like 0.03ms is perfectly acceptable for now (and likely forever). I also like that our post-processing can be run in parallel with the fragment shader for the next frame.
 
 ## Compute Shaders
 
@@ -35,12 +42,12 @@ https://github.com/user-attachments/assets/210e7ea4-8985-48f2-a35f-1aedb52068a5
 
 - Updates the 3D positions of snow particles in parallel to achieve a realtime snowfall effect
 - Custom compute shader simulates wind and gravity while introducing noise, tracking the position and velocity of individual particles, and looping particles within a bounding box
-- Currently renders 2048 particles in under a hundreth of a ms for compute and draw
-	- I chose this number for aesthetic purposes, but I've tried up to a million particles (which turns the screen almost white), and it remains extremely performant. The bottleneck becomes the graphics pass at that point, but I could probably get better performance through culling.
+- Currently renders 2048 particles in under a hundredth of a ms for compute and draw
+	- I chose this number for aesthetic purposes, but I've tried up to a million particles (which turns the screen almost white), and it remains extremely performant. The bottleneck becomes the graphics pass at that point, but I could probably get better performance there through culling.
 
 ### N64 Post-Processing Shader
 
-- Applies N64-like post processing operations to an offscreen image drawn to by the graphics pipelines via another custom shader, outputting to the swapchain
+- Applies N64-like post processing operations to an offscreen image via another custom shader, outputting to the swapchain
 - Color quantization: Crushes existing colors into their 15-bit counterparts
 - Bayer Dithering: Applies a tiled 8x8 Bayer matrix to the image, keeping with the retro style and concealing color banding as suggested by official N64 programming documentation (https://ultra64.ca/files/documentation/online-manuals/man/pro-man/pro15/index15.5.html)
 	- The Bayer matrix definitely captured the look I wanted best, but the manual also mentions a couple more approaches I tested or want to try out, sources/info which I'll list here:
