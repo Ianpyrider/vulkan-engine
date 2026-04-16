@@ -4,7 +4,7 @@ Inspired by the low-poly, uncanny-valley fantasy worlds of the N64 era, I wanted
 
 https://github.com/user-attachments/assets/210e7ea4-8985-48f2-a35f-1aedb52068a5
 
-(Notice the dithering pattern on the colors! For more info: https://en.wikipedia.org/wiki/Dither)
+(You can see the dithering pattern more easily in fullscreen! For more info: https://en.wikipedia.org/wiki/Dither)
 
 ## Engine Features
 
