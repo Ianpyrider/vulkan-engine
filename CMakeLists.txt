@@ -49,7 +49,8 @@ target_sources(VulkanApp PRIVATE
     VulkanApp/src/shared/tiny_obj_loader.cpp
     "VulkanApp/include/renderer/ParticleComputePipeline.h" 
     "VulkanApp/src/renderer/ParticleComputePipeline.cpp"
-)
+    "VulkanApp/compile.bat"
+ "VulkanApp/include/renderer/Particle.h" "VulkanApp/src/renderer/Particle.cpp" "VulkanApp/include/renderer/GpuProfiler.h" "VulkanApp/src/renderer/GpuProfiler.cpp")
 
 target_link_directories(VulkanApp PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/Lib/lib)
 

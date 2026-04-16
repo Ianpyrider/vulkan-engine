@@ -85,6 +85,7 @@ VulkanContext::VulkanContext(GLFWwindow* window) {
     createVma();
     createQueryPools();
     createContextCommandPool();
+    createImGuiContext();
 }
 
 VulkanContext::~VulkanContext() {
@@ -96,9 +97,9 @@ void VulkanContext::createInstance() {
     // Create app info
 
     constexpr vk::ApplicationInfo appInfo{
-        .pApplicationName = "Hello Triangle",
+        .pApplicationName = "VulkaN64 Demo",
         .applicationVersion = VK_MAKE_VERSION(1, 0, 0),
-        .pEngineName = "No Engine",
+        .pEngineName = "VulkaN64",
         .engineVersion = VK_MAKE_VERSION(1, 0, 0),
         .apiVersion = vk::ApiVersion14
     };
@@ -415,4 +416,8 @@ std::vector<uint64_t> VulkanContext::getFrameTimestamps(uint32_t frameIndex) {
         timestamps.begin() + startIndex,
         timestamps.begin() + startIndex + EngineConfig::TIMESTAMPS_PER_FRAME
     );
+}
+
+void VulkanContext::createImGuiContext() {
+
 }

@@ -33,8 +33,8 @@ private:
 	GLFWmonitor* monitor = nullptr;
 
 	uint32_t graphicsIndex = ~0;
-	const uint32_t WINDOW_WIDTH = 800;
-	const uint32_t WINDOW_HEIGHT = 600;
+	const uint32_t WINDOW_WIDTH = 1600;
+	const uint32_t WINDOW_HEIGHT = 1200;
 
 	void mainLoop();
 	void initWindow();

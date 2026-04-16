@@ -14,5 +14,8 @@ namespace EngineConfig {
 	inline constexpr bool PRINT_GPU_PROFILING = true;
 	inline constexpr bool ENABLE_MAILBOX_PRESENT = false;
 
-	inline constexpr int PARTICLE_COUNT = 1024;
+	//inline constexpr int PARTICLE_COUNT = 1024;
+	inline constexpr int PARTICLE_COUNT = 2048;
+	//inline constexpr int PARTICLE_COUNT = 10240;
+	//inline constexpr int PARTICLE_COUNT = 1024000;
 }

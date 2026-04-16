@@ -136,7 +136,6 @@ void Renderer::drawFrame() {
         assert(result == vk::Result::eSuccess);
     }
 
-
     frameIndex = (frameIndex + 1) % EngineConfig::MAX_FRAMES_IN_FLIGHT;
 }
 

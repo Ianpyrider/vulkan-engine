@@ -20,7 +20,7 @@ struct ParticleSSBO {
 [numthreads(256, 1, 1)]
 void compMain(uint3 threadId: SV_DispatchThreadID) {
     uint index = threadId.x;
-    if (index >= 4096) return;
+    if (index >= 2048) return;
 
     float3 pos = particlesBuffer[index].position.xyz;
     float3 baseVel = particlesBuffer[index].velocity.xyz;
