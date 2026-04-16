@@ -76,7 +76,7 @@ https://github.com/user-attachments/assets/210e7ea4-8985-48f2-a35f-1aedb52068a5
 
 - Realtime ray tracing! https://docs.vulkan.org/tutorial/latest/courses/18_Ray_tracing/00_Overview.html 
 	- PBR would also be cool to implement, especially if raytracing is too intense/doesn't capture the style well (not that PBR necessarily will but it's coool)
-- Keep learning about graphics performance optimizations, and how they vary across different use cases or are specific to certain ones
+- Keep! On! Optimizing! I want to learn more about platform-specific optimizations and different physical device features I can look for 
 - I really want to do something physics based, I'd love to look into fluid simulation the most but I also could do FEM-based mesh warping/collision or interactive particle simulation
 - Make a basic game demo using the engine!
 	- Use a more scalable archtecture: https://docs.vulkan.org/tutorial/latest/Building_a_Simple_Engine/introduction.html 
