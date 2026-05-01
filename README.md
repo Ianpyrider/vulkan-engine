@@ -30,7 +30,7 @@ Razer Blade w/ Nvidia RTX 2070 using mailbox presentation
 - Sync Overhead: ~0.01ms ceiling (based on the difference between the total and the individual parts), meaning commands are waiting on one another negligibly each frame!
 - Observed frame time maxima are always similar to averages, indicating no frame-to-frame bottlenecks
 
-### Bottleneck Analysis: 2D Compute Pass
+#### Note: 2D Compute Pass Bottleneck (Future Improvement)
 - It seems like this could be for a couple of reasons: Using eGeneral for my swapchain image (making it a suboptimal write target), shader math bottlenecks (which seems unlikely, since the shader math is only a few basic steps, but doing pixel chunking here is definitely suboptimal), or maybe suboptimal worker pooling (also unlikely, 16x16 seems to be pretty standard)
 - I had the shader directly output its input values (skipping the math) and it remained the bottleneck at ~0.025ms, supporting my layout theory (though if I operated on a lower res image instead of chunking this would also improve)
 - Potential fixes: Combine into the fragment shader and bypass eGeneral entirely, or do some staging buffer-like trickery
@@ -75,9 +75,9 @@ Razer Blade w/ Nvidia RTX 2070 using mailbox presentation
 - Performance
 	- Currently we use 24-bit colors and crush them to their 15-bit counterparts via a compute shader, but I wonder if I can configure Vulkan to pass 15-bit colors to the fragment shader, bypassing the need for this step and reducing the volume of color data we have to pass across the pipeline
 	- I'm doing pixel chunking in post-processing, where I could be just operating on a lower-res image and doing a simple upscale later. 
- 	- Occlusion/Frustum culling for snow particles
+ 	- Frustum/Occlusion culling for snow particles
 - Architecture
-	- Renderer is too long/complex right now, I need a class that allows me to write to the command buffer in pipeline-based chunks instead of all in one call
+	- Renderer class is too long/complex right now, I need a class that allows me to write to the command buffer in pipeline-based chunks instead of all in one call
 	- Too much falls under the responsibility of VulkanContext, especially when integrating new features, so I'll have to break down engine-wide initialization into logical chunks
 	- EngineConfig currently handles more than engine config, eventually flags and constants will need to be addressed in a more systematic way
 	- Maybe port over my quadric error simplification/loop subdivision project so developers can generate low-poly meshes more easily
