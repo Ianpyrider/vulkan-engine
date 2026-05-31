@@ -1,6 +1,7 @@
 struct VertexInput {
     float3 inPosition;
     float3 inColor;
+    float3 inNormal;
 };
 
 struct UniformBuffer {

@@ -36,7 +36,6 @@ private:
     void createVma();
     void createQueryPools();
     void createContextCommandPool();
-    void createImGuiContext();
 
     vk::raii::Context context;
     vk::raii::Instance instance = nullptr;

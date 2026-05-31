@@ -8,18 +8,28 @@
 #include "renderer/GraphicsPipeline.h"
 #include "renderer/ImageComputePipeline.h"
 #include "renderer/ParticleComputePipeline.h"
-#include "renderer/Vertex.h"
+#include "resources/Vertex.h"
 
 #include <glm/gtc/matrix_transform.hpp>
 
-Renderer::Renderer(VulkanContext& context, SwapChainManager& swapChainManager, GraphicsPipeline& graphicsPipeline, ImageComputePipeline& imageComputePipeline, GraphicsPipeline& particleGraphicsPipeline, ParticleComputePipeline& particleComputePipeline)
-    : context(context), 
+Renderer::Renderer(
+    VulkanContext& context, 
+    SwapChainManager& swapChainManager, 
+    GraphicsPipeline& graphicsPipeline, 
+    ImageComputePipeline& imageComputePipeline, 
+    GraphicsPipeline& particleGraphicsPipeline, 
+    ParticleComputePipeline& particleComputePipeline,
+    GraphicsPipeline& pbrPipeline) : 
+    context(context), 
     swapChainManager(swapChainManager), 
     graphicsPipeline(graphicsPipeline), 
     imageComputePipeline(imageComputePipeline),
     particleGraphicsPipeline(particleGraphicsPipeline),
     particleComputePipeline(particleComputePipeline),
+    pbrPipeline(pbrPipeline),
     profiler(context.getTimestampPeriod()) {
+
+    //std::cout << "Offset of gamma: " << offsetof(PBR_UBO, gamma) << std::endl;
 
     createCommandPool();
     createCommandBuffers();
@@ -62,7 +72,7 @@ void Renderer::drawFrame() {
 
         if (EngineConfig::PRINT_GPU_PROFILING) {
             // Note: With the following line uncommented, performance can be more consistent. Probably because it acts as a throttle? Fifo over mailbox should help this but doesn't entirely I think.
-            // (this line is no longer how we structure things but I do want to check back on this)
+            // Update: This line is no longer how we structure things but I do want to check back on this
             // printf("[GPU Profiling] Draw time: %fms\n", context.getRenderPassTime(frameIndex));
 
             profiler.update(context.getFrameTimestamps(frameIndex));
@@ -259,15 +269,25 @@ void Renderer::recordCommandBuffer(uint32_t imageIndex) {
 
     // Scene objects
 
-    commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, graphicsPipeline.getGraphicsPipeline());
-
     // Wow, we set the dynamic settings we specified earlier!
     commandBuffer.setViewport(0, vk::Viewport(0.0f, 0.0f, static_cast<float>(swapChainManager.getExtent().width), static_cast<float>(swapChainManager.getExtent().height), 0.0f, 1.0f));
     commandBuffer.setScissor(0, vk::Rect2D(vk::Offset2D(0, 0), swapChainManager.getExtent()));
 
-    commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, graphicsPipeline.getPipelineLayout(), 0, *descriptorSets[frameIndex], nullptr);
+    commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, pbrPipeline.getGraphicsPipeline());
+
+    commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, pbrPipeline.getPipelineLayout(), 0, *descriptorSets[frameIndex], nullptr);
 
     for (auto& mesh : sceneObjects) {
+        vk::PushConstantsInfo PCInfo{
+            .layout = *pbrPipeline.getPipelineLayout(),
+            .stageFlags = vk::ShaderStageFlagBits::eFragment,
+            .offset = 0,
+            .size = sizeof(PushConstantBlock),
+            .pValues = &(mesh->getPbrPushConstants())
+        };
+
+        commandBuffer.pushConstants2(PCInfo);
+
         VkDeviceSize offset = 0;
         vkCmdBindVertexBuffers(*commandBuffer, 0, 1, &mesh->getVertexBuffer().buffer, &offset); // Raii doesn't play nicely with VMA so we make this call directly on the unwrapped command buffer
         vkCmdBindIndexBuffer(*commandBuffer, mesh->getIndexBuffer().buffer, offset, VK_INDEX_TYPE_UINT16);
@@ -330,7 +350,7 @@ void Renderer::recordCommandBuffer(uint32_t imageIndex) {
         { imageComputePipeline.getDescriptorSets()[imageIndex] },
         nullptr
     );
-    commandBuffer.dispatch(((swapChainManager.getExtent().width + 15) / 16.0), ((swapChainManager.getExtent().height+15)/16), 1);
+    commandBuffer.dispatch(((swapChainManager.getExtent().width + 15) / 16), ((swapChainManager.getExtent().height+15)/16), 1);
 
     commandBuffer.writeTimestamp2(vk::PipelineStageFlagBits2::eComputeShader, context.getTimestampQueryPool(), startIndex + 7);
 
@@ -416,7 +436,7 @@ void Renderer::createUniformBuffers() {
     for (size_t i = 0; i < EngineConfig::MAX_FRAMES_IN_FLIGHT; i++) {
         uniformBuffers.push_back(
             context.createVmaBuffer(
-                sizeof(MVP),
+                sizeof(PBR_UBO),
                 VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
                 VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT,
                 VMA_MEMORY_USAGE_AUTO
@@ -426,7 +446,7 @@ void Renderer::createUniformBuffers() {
 }
 
 void Renderer::updateUniformBuffer(uint32_t frameIndex, float totalTime, float deltaTime) {
-    MVP ubo{};
+    PBR_UBO ubo{};
 
     ubo.model = glm::mat4(1.0f);
     
@@ -434,15 +454,42 @@ void Renderer::updateUniformBuffer(uint32_t frameIndex, float totalTime, float d
     float radius = 3.5f;
     glm::vec3 center = glm::vec3(0, 0, 0.2f);
 
-    float orbitSpeed = 0.2f;
+    float orbitSpeed = 0.5f;
     float cameraX = sin(totalTime * orbitSpeed) * radius;
     float cameraY = cos(totalTime * orbitSpeed) * radius;
 
     ubo.view = lookAt(glm::vec3(cameraX, cameraY, 0.0f), center, glm::vec3(0.0f, 0.0f, 1.0f));
-
     ubo.proj = glm::perspective(glm::radians(45.0f), static_cast<float>(swapChainManager.getExtent().width) / static_cast<float>(swapChainManager.getExtent().height), 0.1f, 10.0f);
-
     ubo.proj[1][1] *= -1;
+
+    // Lights
+
+    const int LD = 10.f;
+    const int LP = 300.f;
+
+    // Light 1: White light from above
+    ubo.lightPositions[0] = glm::vec4(0.0f, LD, LD, 1.0f);
+    ubo.lightColors[0] = glm::vec4(LP, LP, LP, 1.0f);
+
+    // Light 2: Blue light from the left
+    ubo.lightPositions[1] = glm::vec4(-LD, 0.0f, 0.0f, 1.0f);
+    ubo.lightColors[1] = glm::vec4(0.0f, 0.0f, LP, 1.0f);
+
+    // Light 3: Red light from the right
+    ubo.lightPositions[2] = glm::vec4(LD, 0.0f, 0.0f, 1.0f);
+    ubo.lightColors[2] = glm::vec4(LP, 0.0f, 0.0f, 1.0f);
+
+    // Light 4: Green light from the front
+    ubo.lightPositions[3] = glm::vec4(0.0f, -LD, 0.0f, 1.0f);
+    ubo.lightColors[3] = glm::vec4(0.0f, LP, 0.0f, 1.0f);
+    
+    ubo.camPos = glm::vec4(cameraX, cameraY, 0.0f, 1.0f);
+
+    ubo.exposure = 4.5f;
+    ubo.gamma = 2.2f;
+    ubo.prefilteredCubeMipLevels = 1.0f;
+    ubo.scaleIBLAmbient = 1.0f;
+    //ubo.EGPS = glm::vec4(4.5f, 2.2f, 1.0f, 1.0f);
 
     memcpy(uniformBuffers[frameIndex].info.pMappedData, &ubo, sizeof(ubo));
 }
@@ -464,7 +511,7 @@ void Renderer::createDescriptorSets() {
     std::vector<vk::DescriptorSetLayout> layouts;
     layouts.reserve(EngineConfig::MAX_FRAMES_IN_FLIGHT);
     for (uint32_t i = 0; i < EngineConfig::MAX_FRAMES_IN_FLIGHT; i++) {
-        layouts.push_back(*graphicsPipeline.getDescriptorSetLayout());
+        layouts.push_back(*pbrPipeline.getDescriptorSetLayout());
     }
 
     vk::DescriptorSetAllocateInfo allocInfo{
@@ -479,7 +526,7 @@ void Renderer::createDescriptorSets() {
         vk::DescriptorBufferInfo bufferInfo{
             .buffer = uniformBuffers[i].buffer,
             .offset = 0,
-            .range = sizeof(MVP),
+            .range = sizeof(PBR_UBO),
         };
 
         vk::WriteDescriptorSet descriptorWrite{
@@ -496,5 +543,5 @@ void Renderer::createDescriptorSets() {
 }
 
 void Renderer::loadMeshes() {
-    sceneObjects.push_back(std::make_unique<Mesh>("assets/models/lowpolytree.obj", context));
+    sceneObjects.push_back(std::make_unique<Mesh>("assets/models/treenew.obj", context));
 }

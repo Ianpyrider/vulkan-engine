@@ -2,7 +2,7 @@
 
 #include "renderer/GraphicsPipeline.h"
 
-#include "renderer/Vertex.h"
+#include "resources/Vertex.h"
 #include "shared/FileUtils.h"
 #include "shared/VulkanUtils.h"
 #include  "shared/EngineConfig.h"
@@ -21,7 +21,7 @@ GraphicsPipeline::GraphicsPipeline(VulkanContext& context, SwapChainManager& swa
 }
 
 void GraphicsPipeline::createDescriptorSetLayout() {
-    vk::DescriptorSetLayoutBinding uboLayoutBinding(0, vk::DescriptorType::eUniformBuffer, 1, vk::ShaderStageFlagBits::eVertex, nullptr);
+    vk::DescriptorSetLayoutBinding uboLayoutBinding(0, vk::DescriptorType::eUniformBuffer, 1, vk::ShaderStageFlagBits::eVertex | vk::ShaderStageFlagBits::eFragment, nullptr);
     vk::DescriptorSetLayoutCreateInfo layoutInfo{ .bindingCount = 1, .pBindings = &uboLayoutBinding };
     descriptorSetLayout = vk::raii::DescriptorSetLayout(context.getDevice(), layoutInfo);
 }
@@ -61,12 +61,12 @@ void GraphicsPipeline::createGraphicsPipeline() {
         .pDynamicStates = dynamicStates.data()
     };
 
-    auto bindingDescription = config.bindingDescription;
+    auto bindingDescriptions = config.bindingDescriptions;
     auto attributeDescriptions = config.attributeDescriptions;
 
     vk::PipelineVertexInputStateCreateInfo vertexInputInfo{
-        .vertexBindingDescriptionCount = 1,
-        .pVertexBindingDescriptions = &bindingDescription,
+        .vertexBindingDescriptionCount = static_cast<uint32_t>(bindingDescriptions.size()),
+        .pVertexBindingDescriptions = bindingDescriptions.data(),
         .vertexAttributeDescriptionCount = static_cast<uint32_t>(attributeDescriptions.size()),
         .pVertexAttributeDescriptions = attributeDescriptions.data()
     };
@@ -109,7 +109,8 @@ void GraphicsPipeline::createGraphicsPipeline() {
     vk::PipelineLayoutCreateInfo pipelineLayoutInfo{
         .setLayoutCount = 1,
         .pSetLayouts = &*descriptorSetLayout,
-        .pushConstantRangeCount = 0
+        .pushConstantRangeCount = static_cast<uint32_t>(config.pushConstantRanges.size()),
+        .pPushConstantRanges = config.pushConstantRanges.data()
     };
 
     pipelineLayout = vk::raii::PipelineLayout(device, pipelineLayoutInfo);

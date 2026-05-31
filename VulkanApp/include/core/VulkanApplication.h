@@ -23,9 +23,13 @@ public:
 private:
 	std::unique_ptr<VulkanContext> vkContext;
 	std::unique_ptr<SwapChainManager> vkSwapChainManager;
+
 	std::unique_ptr<GraphicsPipeline> vkGraphicsPipeline;
 	std::unique_ptr<GraphicsPipeline> vkParticleGraphicsPipeline;
+	std::unique_ptr<GraphicsPipeline> vkPBRGraphicsPipeline;
+
 	std::unique_ptr<Renderer> vkRenderer;
+	
 	std::unique_ptr<ImageComputePipeline> vkImageComputePipeline;
 	std::unique_ptr<ParticleComputePipeline> vkParticleComputePipeline;
 

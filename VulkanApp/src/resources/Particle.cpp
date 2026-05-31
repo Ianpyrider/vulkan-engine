@@ -1,4 +1,4 @@
-#include "renderer\Particle.h"
+#include "resources\Particle.h"
 
 std::vector<vk::VertexInputAttributeDescription> Particle::getAttributeDescriptions() {
     std::vector descriptions{

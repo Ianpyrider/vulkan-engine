@@ -5,7 +5,7 @@
 #include "shared/FileUtils.h"
 #include "core/VulkanContext.h"
 #include "core/SwapChainManager.h"
-#include "renderer/Particle.h"
+#include "resources/Particle.h"
 
 #include <random>
 

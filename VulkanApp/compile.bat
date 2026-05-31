@@ -9,6 +9,8 @@ if "%OUT_DIR%"=="" set "OUT_DIR=."
 
 echo --- Compiling Slang Shaders to: %OUT_DIR% ---
 
+:: Vertex/Frag Shaders
+
 "C:/VulkanSDK/1.4.321.1/bin/slangc.exe" shaders/shader.slang ^
     -target spirv -profile spirv_1_4 -emit-spirv-directly ^
     -fvk-use-entrypoint-name -entry vertMain -entry fragMain ^
@@ -18,6 +20,13 @@ echo --- Compiling Slang Shaders to: %OUT_DIR% ---
     -target spirv -profile spirv_1_4 -emit-spirv-directly ^
     -fvk-use-entrypoint-name -entry vertMain -entry fragMain ^
     -o "%OUT_DIR%/pcl_slang.spv"
+
+"C:/VulkanSDK/1.4.321.1/bin/slangc.exe" shaders/pbr.slang ^
+    -target spirv -profile spirv_1_4 -emit-spirv-directly ^
+    -fvk-use-entrypoint-name -entry vertMain -entry fragMain ^
+    -o "%OUT_DIR%/pbr.spv"
+
+:: Compute Shaders
 
 "C:/VulkanSDK/1.4.321.1/bin/slangc.exe" shaders/n64_compute.slang ^
     -target spirv -profile spirv_1_4 -emit-spirv-directly ^

@@ -9,8 +9,8 @@
 #include "renderer/ImageComputePipeline.h"
 #include "renderer/ParticleComputePipeline.h"
 #include "renderer/Renderer.h"
-#include "renderer/Vertex.h"
-#include "renderer/Particle.h"
+#include "resources/Vertex.h"
+#include "resources/Particle.h"
 
 #include <memory>
 
@@ -21,12 +21,11 @@ VulkanApplication::VulkanApplication() {
     initWindow();
 
     vkContext = std::make_unique<VulkanContext>(window);
-
     vkSwapChainManager = std::make_unique<SwapChainManager>(*vkContext, window);
 
     initializePipelines();
 
-    vkRenderer = std::make_unique<Renderer>(*vkContext, *vkSwapChainManager, *vkGraphicsPipeline, *vkImageComputePipeline, *vkParticleGraphicsPipeline, *vkParticleComputePipeline);
+    vkRenderer = std::make_unique<Renderer>(*vkContext, *vkSwapChainManager, *vkGraphicsPipeline, *vkImageComputePipeline, *vkParticleGraphicsPipeline, *vkParticleComputePipeline, *vkPBRGraphicsPipeline);
 }
 
 VulkanApplication::~VulkanApplication() {
@@ -76,23 +75,40 @@ void VulkanApplication::framebufferResizeCallback(GLFWwindow* window, int width,
 void VulkanApplication::initializePipelines() {
     GraphicsPipeline::PipelineConfig geometryConfig{
         .shaderPath = EngineConfig::SHADER_PATH,
-        .bindingDescription = Vertex::getBindingDescription(),
+        .bindingDescriptions = { Vertex::getBindingDescription() },
         .attributeDescriptions = Vertex::getAttributeDescriptions(),
         .topology = vk::PrimitiveTopology::eTriangleList
     };
 
-    vkGraphicsPipeline = std::make_unique<GraphicsPipeline>(*vkContext, *vkSwapChainManager, geometryConfig);
-
     GraphicsPipeline::PipelineConfig particleConfig{
         .shaderPath = EngineConfig::PARTICLE_SHADER_PATH,
-        .bindingDescription = Particle::getBindingDescription(),
+        .bindingDescriptions = { Particle::getBindingDescription() },
         .attributeDescriptions = Particle::getAttributeDescriptions(),
         .topology = vk::PrimitiveTopology::ePointList
     };
 
+    vk::PushConstantRange pbrPushConstantRange{
+        .stageFlags = vk::ShaderStageFlagBits::eFragment,
+        .offset = 0,
+        .size = (sizeof(PushConstantBlock))
+    };
+
+    GraphicsPipeline::PipelineConfig pbrConfig{
+        .shaderPath = EngineConfig::PBR_SHADER_PATH,
+        .bindingDescriptions = {
+            Vertex::getBindingDescription()
+        },
+        .attributeDescriptions = Vertex::getAttributeDescriptions(),
+        .topology = vk::PrimitiveTopology::eTriangleList,
+        .pushConstantRanges = { pbrPushConstantRange }
+    };
+
+    vkGraphicsPipeline = std::make_unique<GraphicsPipeline>(*vkContext, *vkSwapChainManager, geometryConfig);
     vkParticleGraphicsPipeline = std::make_unique<GraphicsPipeline>(*vkContext, *vkSwapChainManager, particleConfig);
+    vkPBRGraphicsPipeline = std::make_unique<GraphicsPipeline>(*vkContext, *vkSwapChainManager, pbrConfig);
 
     vkImageComputePipeline = std::make_unique<ImageComputePipeline>(*vkContext, *vkSwapChainManager);
     vkParticleComputePipeline = std::make_unique<ParticleComputePipeline>(*vkContext, *vkSwapChainManager);
+    
 }
 

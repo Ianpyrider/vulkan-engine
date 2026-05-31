@@ -10,9 +10,10 @@ class GraphicsPipeline
 public:
 	struct PipelineConfig {
 		std::string shaderPath;
-		vk::VertexInputBindingDescription bindingDescription;
+		std::vector<vk::VertexInputBindingDescription> bindingDescriptions;
 		std::vector<vk::VertexInputAttributeDescription> attributeDescriptions;
 		vk::PrimitiveTopology topology;
+		std::vector<vk::PushConstantRange> pushConstantRanges = {};
 	};
 
 	GraphicsPipeline(VulkanContext& context, SwapChainManager& swapChainManager, const PipelineConfig& config);

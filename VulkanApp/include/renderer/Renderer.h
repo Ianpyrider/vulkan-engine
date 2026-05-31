@@ -2,7 +2,7 @@
 
 #include "shared/VulkanInclude.h"
 #include "shared/Types.h"
-#include "renderer/Mesh.h"
+#include "resources/Mesh.h"
 #include "renderer/GpuProfiler.h"
 
 #include <chrono>
@@ -22,7 +22,8 @@ public:
 		GraphicsPipeline& graphicsPipeline, 
 		ImageComputePipeline& imageComputePipeline,
 		GraphicsPipeline& particleGraphicsPipeline,
-		ParticleComputePipeline& particleComputePipeline
+		ParticleComputePipeline& particleComputePipeline,
+		GraphicsPipeline& pbrPipeline
 	);
 	~Renderer();
 
@@ -36,6 +37,7 @@ private:
 	ImageComputePipeline& imageComputePipeline;
 	GraphicsPipeline& particleGraphicsPipeline;
 	ParticleComputePipeline& particleComputePipeline;
+	GraphicsPipeline& pbrPipeline;
 
 	// Scene objects
 	std::vector<std::unique_ptr<Mesh>> sceneObjects;

@@ -85,7 +85,6 @@ VulkanContext::VulkanContext(GLFWwindow* window) {
     createVma();
     createQueryPools();
     createContextCommandPool();
-    createImGuiContext();
 }
 
 VulkanContext::~VulkanContext() {
@@ -416,8 +415,4 @@ std::vector<uint64_t> VulkanContext::getFrameTimestamps(uint32_t frameIndex) {
         timestamps.begin() + startIndex,
         timestamps.begin() + startIndex + EngineConfig::TIMESTAMPS_PER_FRAME
     );
-}
-
-void VulkanContext::createImGuiContext() {
-
 }
