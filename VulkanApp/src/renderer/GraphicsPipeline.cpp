@@ -16,14 +16,38 @@
 
 GraphicsPipeline::GraphicsPipeline(VulkanContext& context, SwapChainManager& swapChainManager, const PipelineConfig& config)
     : context(context), swapChainManager(swapChainManager), config(config) {
-    createDescriptorSetLayout();
+    createDescriptorSetLayouts();
     createGraphicsPipeline();
 }
 
-void GraphicsPipeline::createDescriptorSetLayout() {
-    vk::DescriptorSetLayoutBinding uboLayoutBinding(0, vk::DescriptorType::eUniformBuffer, 1, vk::ShaderStageFlagBits::eVertex | vk::ShaderStageFlagBits::eFragment, nullptr);
-    vk::DescriptorSetLayoutCreateInfo layoutInfo{ .bindingCount = 1, .pBindings = &uboLayoutBinding };
-    descriptorSetLayout = vk::raii::DescriptorSetLayout(context.getDevice(), layoutInfo);
+void GraphicsPipeline::createDescriptorSetLayouts() {
+    descriptorSetLayouts.reserve(2);
+
+    // Global (UBO) Layout
+
+    std::array<vk::DescriptorSetLayoutBinding, 1> bindings{ {
+        {.binding = 0, .descriptorType = vk::DescriptorType::eUniformBuffer, .descriptorCount = 1, .stageFlags = vk::ShaderStageFlagBits::eVertex | vk::ShaderStageFlagBits::eFragment}
+    } };
+
+    vk::DescriptorSetLayoutCreateInfo layoutInfo{ 
+        .bindingCount = static_cast<uint32_t>(bindings.size()), 
+        .pBindings = bindings.data()
+    };
+
+    descriptorSetLayouts.push_back(vk::raii::DescriptorSetLayout(context.getDevice(), layoutInfo));
+
+    // Mesh Layout w/ Texture
+
+    std::array<vk::DescriptorSetLayoutBinding, 1> bindings2{ {
+        {.binding = 0, .descriptorType = vk::DescriptorType::eCombinedImageSampler, .descriptorCount = 1, .stageFlags = vk::ShaderStageFlagBits::eFragment }
+    } };
+
+    vk::DescriptorSetLayoutCreateInfo layoutInfo2{
+        .bindingCount = static_cast<uint32_t>(bindings2.size()),
+        .pBindings = bindings2.data()
+    };
+
+    descriptorSetLayouts.push_back(vk::raii::DescriptorSetLayout(context.getDevice(), layoutInfo2));
 }
 
 void GraphicsPipeline::createGraphicsPipeline() {
@@ -106,9 +130,18 @@ void GraphicsPipeline::createGraphicsPipeline() {
         .pAttachments = &colorBlendAttachment
     };
 
+    // Format layouts how they want it
+
+    std::vector<vk::DescriptorSetLayout> rawLayouts;
+    rawLayouts.reserve(descriptorSetLayouts.size());
+
+    for (const auto& layout : descriptorSetLayouts) {
+        rawLayouts.push_back(*layout);
+    }
+
     vk::PipelineLayoutCreateInfo pipelineLayoutInfo{
-        .setLayoutCount = 1,
-        .pSetLayouts = &*descriptorSetLayout,
+        .setLayoutCount = static_cast<uint32_t>(rawLayouts.size()),
+        .pSetLayouts = rawLayouts.data(),
         .pushConstantRangeCount = static_cast<uint32_t>(config.pushConstantRanges.size()),
         .pPushConstantRanges = config.pushConstantRanges.data()
     };

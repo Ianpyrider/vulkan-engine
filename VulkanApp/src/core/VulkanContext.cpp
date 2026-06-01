@@ -258,7 +258,7 @@ void VulkanContext::createLogicalDevice() {
         vk::PhysicalDeviceVulkan12Features,
         vk::PhysicalDeviceVulkan13Features, 
         vk::PhysicalDeviceExtendedDynamicStateFeaturesEXT> featureChain = {
-        {},                              // vk::PhysicalDeviceFeatures2
+        { .features = { .samplerAnisotropy = true }},                              // vk::PhysicalDeviceFeatures2
         { .shaderDrawParameters = true }, // Vulkan 1.1 features
         { .hostQueryReset = true },      // Vulkan 1.2 features
         {
@@ -330,15 +330,22 @@ AllocatedBuffer VulkanContext::createVmaBuffer(VkDeviceSize size, VkBufferUsageF
 }
 
 void VulkanContext::copyBuffer(AllocatedBuffer src, AllocatedBuffer dst, vk::DeviceSize size) {
-    vk::CommandBufferAllocateInfo allocInfo{ .commandPool = contextCommandPool, .level = vk::CommandBufferLevel::ePrimary, .commandBufferCount = 1 };
-    vk::raii::CommandBuffer commandCopyBuffer = std::move(device.allocateCommandBuffers(allocInfo).front());
+    vk::raii::CommandBuffer commandCopyBuffer = beginSingleTimeCommands();
+    commandCopyBuffer.copyBuffer(src.buffer, dst.buffer, vk::BufferCopy{ .size = size });
+    endSingleTimeCommands(std::move(commandCopyBuffer));
+}
 
-    commandCopyBuffer.begin(vk::CommandBufferBeginInfo{ .flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit });
-    commandCopyBuffer.copyBuffer(src.buffer, dst.buffer, vk::BufferCopy(0, 0, size));
-    commandCopyBuffer.end();
+void VulkanContext::copyBufferToImage(vk::raii::CommandBuffer& cmd, AllocatedBuffer src, AllocatedImage dst, uint32_t width, uint32_t height) {
+    vk::BufferImageCopy region{ 
+        .bufferOffset = 0,
+        .bufferRowLength = 0,
+        .bufferImageHeight = 0,
+        .imageSubresource = {.aspectMask = vk::ImageAspectFlagBits::eColor, .mipLevel = 0, .baseArrayLayer = 0, .layerCount = 1},
+        .imageOffset = {0, 0, 0},
+        .imageExtent = {width, height, 1} 
+    };
 
-    graphicsQueue.submit(vk::SubmitInfo{ .commandBufferCount = 1, .pCommandBuffers = &*commandCopyBuffer }, nullptr);
-    graphicsQueue.waitIdle();
+    cmd.copyBufferToImage(src.buffer, dst.image, vk::ImageLayout::eTransferDstOptimal, region);
 }
 
 AllocatedImage VulkanContext::createVmaImage(vk::ImageCreateInfo info, VmaAllocationCreateInfo allocCreateInfo) {
@@ -354,7 +361,7 @@ AllocatedImage VulkanContext::createVmaImage(vk::ImageCreateInfo info, VmaAlloca
     return { vk::Image(image), alloc };
 }
 
-void VulkanContext::destroyVmaImage(vk::Image& image, VmaAllocation& allocation) {
+void VulkanContext::destroyVmaImage(vk::Image image, VmaAllocation& allocation) {
     if (image && allocation) {
         vmaDestroyImage(allocator, static_cast<VkImage>(image), allocation);
 
@@ -415,4 +422,62 @@ std::vector<uint64_t> VulkanContext::getFrameTimestamps(uint32_t frameIndex) {
         timestamps.begin() + startIndex,
         timestamps.begin() + startIndex + EngineConfig::TIMESTAMPS_PER_FRAME
     );
+}
+
+vk::raii::CommandBuffer VulkanContext::beginSingleTimeCommands()
+{
+    vk::CommandBufferAllocateInfo allocInfo{ .commandPool = contextCommandPool, .level = vk::CommandBufferLevel::ePrimary, .commandBufferCount = 1 };
+    vk::raii::CommandBuffer       commandBuffer = std::move(vk::raii::CommandBuffers(device, allocInfo).front());
+
+    vk::CommandBufferBeginInfo beginInfo{ .flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit };
+    commandBuffer.begin(beginInfo);
+
+    return std::move(commandBuffer);
+}
+
+void VulkanContext::endSingleTimeCommands(vk::raii::CommandBuffer&& commandBuffer)
+{
+    commandBuffer.end();
+
+    vk::SubmitInfo submitInfo{ .commandBufferCount = 1, .pCommandBuffers = &*commandBuffer };
+    graphicsQueue.submit(submitInfo, nullptr);
+    graphicsQueue.waitIdle();
+}
+
+void VulkanContext::transitionImageLayout(
+    vk::Image image,
+    vk::ImageLayout oldLayout,
+    vk::ImageLayout newLayout,
+    vk::AccessFlags2 srcAccessMask,
+    vk::AccessFlags2 dstAccessMask,
+    vk::PipelineStageFlags2 srcStageMask,
+    vk::PipelineStageFlags2 dstStageMask,
+    vk::ImageAspectFlags imageAspectFlags,
+    vk::raii::CommandBuffer& curCommandBuffer
+) {
+    vk::ImageMemoryBarrier2 barrier = {
+        .srcStageMask = srcStageMask,
+        .srcAccessMask = srcAccessMask,
+        .dstStageMask = dstStageMask,
+        .dstAccessMask = dstAccessMask,
+        .oldLayout = oldLayout,
+        .newLayout = newLayout,
+        .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+        .image = image,
+        .subresourceRange = {
+            .aspectMask = imageAspectFlags,
+            .baseMipLevel = 0,
+            .levelCount = 1,
+            .baseArrayLayer = 0,
+            .layerCount = 1
+        }
+    };
+
+    vk::DependencyInfo dependencyInfo = {
+        .dependencyFlags = {},
+        .imageMemoryBarrierCount = 1,
+        .pImageMemoryBarriers = &barrier
+    };
+    curCommandBuffer.pipelineBarrier2(dependencyInfo);
 }

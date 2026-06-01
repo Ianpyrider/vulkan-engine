@@ -5,7 +5,7 @@ struct VSInput {
     float3 Position : POSITION; // 3D position in model space
     float3 Color : COLOR;
     float3 Normal : NORMAL;            // Surface normal for lighting calculations
-    // float2 UV : TEXCOORD0;          // Texture coordinates for material sampling
+    float2 UV : TEXCOORD0;          // Texture coordinates for material sampling
     // float4 Tangent : TANGENT;       // Tangent vector for normal mapping (w component = handedness)
     // float2 Bitangent : BITANGENT;
 };
@@ -16,7 +16,7 @@ struct VSOutput {
     float3 WorldPos : POSITION;    // World space position for lighting calculations
     float3 Normal : NORMAL;        // World space normal (interpolated)
     float3 Color : COLOR;
-    // float2 UV : TEXCOORD0;         // Texture coordinates (interpolated)
+    float2 UV : TEXCOORD0;         // Texture coordinates (interpolated)
     // float4 Tangent : TANGENT;      // World space tangent (interpolated)
 };
 
@@ -53,6 +53,7 @@ static const float PI = 3.14159265359;
 
 // Resource bindings - Connect CPU resources to GPU shader registers
 [[vk::binding(0, 0)]] ConstantBuffer<UniformBufferObject> ubo;
+[[vk::binding(0, 1)]] Sampler2D texture;
 
 [[vk::push_constant]] PushConstants material;
 
@@ -99,11 +100,19 @@ VSOutput vertMain(VSInput input) {
 
     output.Normal = mul((float3x3)ubo.model, input.Normal);
     output.Color = input.Color;
+    output.UV = input.UV;
     
     return output;
 }
 
 [shader("fragment")]
+float4 fragMain(VSOutput input) : SV_Target
+{
+    // return float4(input.Color, 1.0);
+    return texture.Sample(input.UV);
+}
+
+/*[shader("fragment")]
 float4 fragMain(VSOutput input) : SV_Target
 {
     //float3 liftedColor = pow(input.Color, float3(1.0 / 1.3)); // Gamma lift
@@ -191,4 +200,4 @@ float4 fragMain(VSOutput input) : SV_Target
 
     // Output final color with original alpha
     return float4(color, material.baseColorFactor.a);
-}
+}*/

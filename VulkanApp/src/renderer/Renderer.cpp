@@ -29,14 +29,14 @@ Renderer::Renderer(
     pbrPipeline(pbrPipeline),
     profiler(context.getTimestampPeriod()) {
 
-    //std::cout << "Offset of gamma: " << offsetof(PBR_UBO, gamma) << std::endl;
-
     createCommandPool();
     createCommandBuffers();
     createSyncObjects();
     createUniformBuffers();
+
     createDescriptorPool();
     createDescriptorSets();
+
     loadMeshes();
 
     startTime = std::chrono::steady_clock::now();
@@ -212,7 +212,7 @@ void Renderer::recordCommandBuffer(uint32_t imageIndex) {
     commandBuffer.pipelineBarrier2(dependencyInfo);
 
     // Before starting rendering, transition the compute target image to COLOR_ATTACHMENT_OPTIMAL
-    transitionImageLayout(
+    context.transitionImageLayout(
         imageComputePipeline.getImage(),
         vk::ImageLayout::eUndefined,
         vk::ImageLayout::eColorAttachmentOptimal,
@@ -224,7 +224,7 @@ void Renderer::recordCommandBuffer(uint32_t imageIndex) {
         commandBuffer
     );
 
-    transitionImageLayout(
+    context.transitionImageLayout(
         swapChainManager.getDepthImage().image,
         vk::ImageLayout::eUndefined,
         vk::ImageLayout::eDepthAttachmentOptimal,
@@ -278,6 +278,8 @@ void Renderer::recordCommandBuffer(uint32_t imageIndex) {
     commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, pbrPipeline.getPipelineLayout(), 0, *descriptorSets[frameIndex], nullptr);
 
     for (auto& mesh : sceneObjects) {
+        commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, pbrPipeline.getPipelineLayout(), 1, *mesh->getDescriptorSets()[frameIndex], nullptr);
+
         vk::PushConstantsInfo PCInfo{
             .layout = *pbrPipeline.getPipelineLayout(),
             .stageFlags = vk::ShaderStageFlagBits::eFragment,
@@ -315,7 +317,7 @@ void Renderer::recordCommandBuffer(uint32_t imageIndex) {
     
     // NOW THE COMPUTE STAGE
 
-    transitionImageLayout( // Transition compute image to read only
+    context.transitionImageLayout( // Transition compute image to read only
         imageComputePipeline.getImage(),
         vk::ImageLayout::eColorAttachmentOptimal,
         vk::ImageLayout::eShaderReadOnlyOptimal,
@@ -328,7 +330,7 @@ void Renderer::recordCommandBuffer(uint32_t imageIndex) {
     );
 
     // NOTE: We could modify transitionImage so that we can use a single barrier with these two transitionImageLayout calls
-    transitionImageLayout( // Transition swapchain image so it can be written to
+    context.transitionImageLayout( // Transition swapchain image so it can be written to
         swapChainManager.getImages()[imageIndex],              
         vk::ImageLayout::eUndefined,
         vk::ImageLayout::eGeneral,
@@ -354,7 +356,7 @@ void Renderer::recordCommandBuffer(uint32_t imageIndex) {
 
     commandBuffer.writeTimestamp2(vk::PipelineStageFlagBits2::eComputeShader, context.getTimestampQueryPool(), startIndex + 7);
 
-    transitionImageLayout(
+    context.transitionImageLayout(
         swapChainManager.getImages()[imageIndex],              
         vk::ImageLayout::eGeneral,
         vk::ImageLayout::ePresentSrcKHR,        
@@ -369,44 +371,6 @@ void Renderer::recordCommandBuffer(uint32_t imageIndex) {
     commandBuffer.writeTimestamp2(vk::PipelineStageFlagBits2::eBottomOfPipe, context.getTimestampQueryPool(), startIndex+8);
 
     commandBuffer.end();
-}
-
-void Renderer::transitionImageLayout(
-    vk::Image image,
-    vk::ImageLayout oldLayout,
-    vk::ImageLayout newLayout,
-    vk::AccessFlags2 srcAccessMask,
-    vk::AccessFlags2 dstAccessMask,
-    vk::PipelineStageFlags2 srcStageMask,
-    vk::PipelineStageFlags2 dstStageMask,
-    vk::ImageAspectFlags imageAspectFlags,
-    vk::raii::CommandBuffer& curCommandBuffer
-) {
-    vk::ImageMemoryBarrier2 barrier = {
-        .srcStageMask = srcStageMask,
-        .srcAccessMask = srcAccessMask,
-        .dstStageMask = dstStageMask,
-        .dstAccessMask = dstAccessMask,
-        .oldLayout = oldLayout,
-        .newLayout = newLayout,
-        .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-        .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-        .image = image,
-        .subresourceRange = {
-            .aspectMask = imageAspectFlags,
-            .baseMipLevel = 0,
-            .levelCount = 1,
-            .baseArrayLayer = 0,
-            .layerCount = 1
-        }
-    };
-
-    vk::DependencyInfo dependencyInfo = {
-        .dependencyFlags = {},
-        .imageMemoryBarrierCount = 1,
-        .pImageMemoryBarriers = &barrier
-    };
-    curCommandBuffer.pipelineBarrier2(dependencyInfo);
 }
 
 void Renderer::createSyncObjects() {
@@ -452,13 +416,14 @@ void Renderer::updateUniformBuffer(uint32_t frameIndex, float totalTime, float d
     
     // Orbit camera
     float radius = 3.5f;
-    glm::vec3 center = glm::vec3(0, 0, 0.2f);
+    //glm::vec3 center = glm::vec3(0, 0, 0.2f);
+    glm::vec3 center = glm::vec3(0, 0, -0.3f);
 
     float orbitSpeed = 0.5f;
     float cameraX = sin(totalTime * orbitSpeed) * radius;
     float cameraY = cos(totalTime * orbitSpeed) * radius;
 
-    ubo.view = lookAt(glm::vec3(cameraX, cameraY, 0.0f), center, glm::vec3(0.0f, 0.0f, 1.0f));
+    ubo.view = lookAt(glm::vec3(cameraX, cameraY, 2.0f), center, glm::vec3(0.0f, 0.0f, 1.0f));
     ubo.proj = glm::perspective(glm::radians(45.0f), static_cast<float>(swapChainManager.getExtent().width) / static_cast<float>(swapChainManager.getExtent().height), 0.1f, 10.0f);
     ubo.proj[1][1] *= -1;
 
@@ -489,19 +454,21 @@ void Renderer::updateUniformBuffer(uint32_t frameIndex, float totalTime, float d
     ubo.gamma = 2.2f;
     ubo.prefilteredCubeMipLevels = 1.0f;
     ubo.scaleIBLAmbient = 1.0f;
-    //ubo.EGPS = glm::vec4(4.5f, 2.2f, 1.0f, 1.0f);
 
     memcpy(uniformBuffers[frameIndex].info.pMappedData, &ubo, sizeof(ubo));
 }
 
 void Renderer::createDescriptorPool() {
-    vk::DescriptorPoolSize poolSize(vk::DescriptorType::eUniformBuffer, EngineConfig::MAX_FRAMES_IN_FLIGHT);
+    std::array<vk::DescriptorPoolSize, 2> poolSizes{{
+        {.type = vk::DescriptorType::eUniformBuffer, .descriptorCount = EngineConfig::MAX_FRAMES_IN_FLIGHT },
+        {.type = vk::DescriptorType::eCombinedImageSampler, .descriptorCount = EngineConfig::MAX_FRAMES_IN_FLIGHT }
+    }};
 
     vk::DescriptorPoolCreateInfo poolInfo{
         .flags = vk::DescriptorPoolCreateFlagBits::eFreeDescriptorSet,
-        .maxSets = EngineConfig::MAX_FRAMES_IN_FLIGHT,
-        .poolSizeCount = 1,
-        .pPoolSizes = &poolSize
+        .maxSets = EngineConfig::MAX_FRAMES_IN_FLIGHT*2,
+        .poolSizeCount = static_cast<uint32_t>(poolSizes.size()),
+        .pPoolSizes = poolSizes.data()
     };
 
     descriptorPool = vk::raii::DescriptorPool(context.getDevice(), poolInfo);
@@ -511,7 +478,7 @@ void Renderer::createDescriptorSets() {
     std::vector<vk::DescriptorSetLayout> layouts;
     layouts.reserve(EngineConfig::MAX_FRAMES_IN_FLIGHT);
     for (uint32_t i = 0; i < EngineConfig::MAX_FRAMES_IN_FLIGHT; i++) {
-        layouts.push_back(*pbrPipeline.getDescriptorSetLayout());
+        layouts.push_back(*pbrPipeline.getDescriptorSetLayout(EngineConfig::DescriptorSetSlot::Global));
     }
 
     vk::DescriptorSetAllocateInfo allocInfo{
@@ -543,5 +510,5 @@ void Renderer::createDescriptorSets() {
 }
 
 void Renderer::loadMeshes() {
-    sceneObjects.push_back(std::make_unique<Mesh>("assets/models/treenew.obj", context));
+    sceneObjects.push_back(std::make_unique<Mesh>("assets/models/treenew.obj", context, swapChainManager, graphicsPipeline, descriptorPool));
 }

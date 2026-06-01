@@ -21,17 +21,17 @@ public:
 
 	vk::raii::Pipeline& getGraphicsPipeline() { return graphicsPipeline; }
 	vk::raii::PipelineLayout& getPipelineLayout() { return pipelineLayout; }
-	vk::raii::DescriptorSetLayout& getDescriptorSetLayout() { return descriptorSetLayout; };
+	vk::raii::DescriptorSetLayout& getDescriptorSetLayout(uint32_t i) { return descriptorSetLayouts[i]; };
 private:
 	VulkanContext& context;
 	SwapChainManager& swapChainManager;
 	const PipelineConfig& config;
 
 	vk::raii::PipelineLayout pipelineLayout = nullptr;
-	vk::raii::DescriptorSetLayout descriptorSetLayout = nullptr;
+	std::vector<vk::raii::DescriptorSetLayout> descriptorSetLayouts = {};
 	vk::raii::Pipeline graphicsPipeline = nullptr;
 
 	void createGraphicsPipeline();
-	void createDescriptorSetLayout();
+	void createDescriptorSetLayouts();
 };
 

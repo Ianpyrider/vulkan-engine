@@ -8,19 +8,32 @@
 #include "glm/glm.hpp"
 
 class VulkanContext;
+class SwapChainManager;
+class GraphicsPipeline;
 
 class Mesh
 {
 public:
-	Mesh(const std::string& filepath, VulkanContext& context);
+	Mesh(
+		const std::string& filepath,
+		VulkanContext& context,
+		SwapChainManager& swapChainManager,
+		GraphicsPipeline& graphicsPipeline,
+		vk::raii::DescriptorPool& descriptorPool
+	);
 	~Mesh();
 
 	AllocatedBuffer& getVertexBuffer() { return vertexBuffer; }
 	AllocatedBuffer& getIndexBuffer() { return indexBuffer; }
+	AllocatedImage& getTextureImage() { return textureImage; }
+	std::vector<vk::raii::DescriptorSet>& getDescriptorSets() { return descriptorSets; }
+
 	uint32_t getIndexCount() { return indexCount; };
 	const PushConstantBlock& getPbrPushConstants() const { return pbrPushConstants; }
 private:
 	VulkanContext& context;
+	SwapChainManager& swapChainManager;
+	GraphicsPipeline& graphicsPipeline;
 
 	AllocatedBuffer vertexBuffer;
 	AllocatedBuffer indexBuffer;
@@ -29,9 +42,20 @@ private:
 	std::vector<Vertex> vertices;
 	std::vector<uint16_t> indices;
 
+	AllocatedImage textureImage;
+	vk::raii::ImageView textureImageView = nullptr;
+	vk::raii::Sampler textureSampler = nullptr;
+	std::vector<vk::raii::DescriptorSet> descriptorSets;
+
 	PushConstantBlock pbrPushConstants;
 
 	AllocatedBuffer createBuffer(const void* data, size_t bufferSize, VkBufferUsageFlags usage);
+	AllocatedImage createImage(const char* src);
+	void createImageView();
+	void createTextureSampler();
+
+	void createMeshDescriptorSet(vk::raii::DescriptorPool& descriptorPool);
+
 	void loadFromObj(const std::string& filepath);
 
 	void setDefaultMaterial() {
