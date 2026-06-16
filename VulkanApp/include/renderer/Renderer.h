@@ -39,6 +39,13 @@ private:
 	ParticleComputePipeline& particleComputePipeline;
 	GraphicsPipeline& pbrPipeline;
 
+	// UBO
+	std::vector<AllocatedBuffer> uniformBuffers;
+
+	std::chrono::time_point<std::chrono::steady_clock> startTime;
+	vk::raii::DescriptorPool descriptorPool = nullptr;
+	std::vector<vk::raii::DescriptorSet> descriptorSets;
+
 	// Scene objects
 	std::vector<std::unique_ptr<Mesh>> sceneObjects;
 
@@ -61,13 +68,6 @@ private:
 	
 	float timeSinceLastPrint = 0.0;
 	std::chrono::time_point<std::chrono::steady_clock> prevFrameTime;
-
-	// UBO
-	std::vector<AllocatedBuffer> uniformBuffers;
-	
-	std::chrono::time_point<std::chrono::steady_clock> startTime;
-	vk::raii::DescriptorPool descriptorPool = nullptr;
-	std::vector<vk::raii::DescriptorSet> descriptorSets;
 
 	// Resizing support
 	bool framebufferResized = false;

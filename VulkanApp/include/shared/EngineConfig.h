@@ -20,8 +20,8 @@ namespace EngineConfig {
 		Mesh = 1, // Set 1 (Textures)
 	};
 
-	//inline constexpr int PARTICLE_COUNT = 1024;
-	inline constexpr int PARTICLE_COUNT = 2048;
+	inline constexpr int PARTICLE_COUNT = 1024;
+	//inline constexpr int PARTICLE_COUNT = 2048;
 	//inline constexpr int PARTICLE_COUNT = 10240;
 	//inline constexpr int PARTICLE_COUNT = 1024000;
 }

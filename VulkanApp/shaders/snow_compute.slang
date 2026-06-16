@@ -20,7 +20,7 @@ struct ParticleSSBO {
 [numthreads(256, 1, 1)]
 void compMain(uint3 threadId: SV_DispatchThreadID) {
     uint index = threadId.x;
-    if (index >= 2048) return;
+    if (index >= 1024) return;
 
     float3 pos = particlesBuffer[index].position.xyz;
     float3 baseVel = particlesBuffer[index].velocity.xyz;
@@ -33,9 +33,9 @@ void compMain(uint3 threadId: SV_DispatchThreadID) {
     float3 currentVel = baseVel + globalWind + float3(windX, windY, 0.0);
     pos += currentVel * ubo.deltaTime;
 
-    float horizontalBounds = 4.0;
-    float skyZ = 5.0;
-    float groundZ = -3.0;
+    float horizontalBounds = 25.0;
+    float skyZ = 25.0;
+    float groundZ = -15.0;
 
     if (pos.z < groundZ) pos.z = skyZ;
 

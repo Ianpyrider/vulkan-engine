@@ -98,3 +98,13 @@ Razer Blade w/ Nvidia RTX 2070 using mailbox presentation
 	- I have this idea for an overhead section of a game where giant hands are messing with you from either side while you run across a bridge, then you somehow go into 3d and there are like eldritch horror creatures towering over either side of the bridge that the hands belonged to
 - Shaders with cool visual effects: https://www.reddit.com/r/GraphicsProgramming/comments/1s9bf3y/does_anyone_else_think_signed_distance_functions/
 	- Imagine a MacGuffin in an N64 game that was high-poly and looked like this lmaoo
+
+## Misc
+
+- Supported formats: obj, glb
+- Export settings: +Z up, +Y forward
+
+## Cleanup Todos
+
+- Context can possibly handle staging buffer and image views in context.createVMAImage()
+- Write isDeviceSuitable() 

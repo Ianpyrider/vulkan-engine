@@ -105,14 +105,14 @@ VSOutput vertMain(VSInput input) {
     return output;
 }
 
-[shader("fragment")]
+/*[shader("fragment")]
 float4 fragMain(VSOutput input) : SV_Target
 {
-    // return float4(input.Color, 1.0);
-    return texture.Sample(input.UV);
-}
+    return float4(input.Color, 1.0);
+    //return texture.Sample(input.UV);
+}*/
 
-/*[shader("fragment")]
+[shader("fragment")]
 float4 fragMain(VSOutput input) : SV_Target
 {
     //float3 liftedColor = pow(input.Color, float3(1.0 / 1.3)); // Gamma lift
@@ -200,4 +200,4 @@ float4 fragMain(VSOutput input) : SV_Target
 
     // Output final color with original alpha
     return float4(color, material.baseColorFactor.a);
-}*/
+}

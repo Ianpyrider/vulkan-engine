@@ -415,21 +415,21 @@ void Renderer::updateUniformBuffer(uint32_t frameIndex, float totalTime, float d
     ubo.model = glm::mat4(1.0f);
     
     // Orbit camera
-    float radius = 3.5f;
-    //glm::vec3 center = glm::vec3(0, 0, 0.2f);
-    glm::vec3 center = glm::vec3(0, 0, -0.3f);
+    float radius = 50.f;
+    glm::vec3 center = glm::vec3(0, 0, 2.f);
+    //glm::vec3 center = glm::vec3(0, 0, -0.3f);
 
     float orbitSpeed = 0.5f;
     float cameraX = sin(totalTime * orbitSpeed) * radius;
     float cameraY = cos(totalTime * orbitSpeed) * radius;
 
     ubo.view = lookAt(glm::vec3(cameraX, cameraY, 2.0f), center, glm::vec3(0.0f, 0.0f, 1.0f));
-    ubo.proj = glm::perspective(glm::radians(45.0f), static_cast<float>(swapChainManager.getExtent().width) / static_cast<float>(swapChainManager.getExtent().height), 0.1f, 10.0f);
+    ubo.proj = glm::perspective(glm::radians(45.0f), static_cast<float>(swapChainManager.getExtent().width) / static_cast<float>(swapChainManager.getExtent().height), 0.1f, 100.0f);
     ubo.proj[1][1] *= -1;
 
     // Lights
 
-    const int LD = 10.f;
+    const int LD = 30.f;
     const int LP = 300.f;
 
     // Light 1: White light from above
@@ -510,5 +510,5 @@ void Renderer::createDescriptorSets() {
 }
 
 void Renderer::loadMeshes() {
-    sceneObjects.push_back(std::make_unique<Mesh>("assets/models/treenew.obj", context, swapChainManager, graphicsPipeline, descriptorPool));
+    sceneObjects.push_back(std::make_unique<Mesh>("assets/models/tree.glb", context, swapChainManager, graphicsPipeline, descriptorPool));
 }

@@ -10,6 +10,8 @@ add_executable(VulkanApp VulkanApp/src/main.cpp)
 
 target_include_directories(VulkanApp PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/Lib/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/Lib/include/stb
+    ${CMAKE_CURRENT_SOURCE_DIR}/Lib/include/nlohmann
     ${CMAKE_CURRENT_SOURCE_DIR}/VulkanApp/include
 )
 
@@ -27,10 +29,6 @@ target_sources(VulkanApp PRIVATE
     "VulkanApp/src/renderer/ImageComputePipeline.cpp"
     VulkanApp/include/renderer/GraphicsPipeline.h
     VulkanApp/src/renderer/GraphicsPipeline.cpp
-    VulkanApp/include/renderer/Vertex.h
-    VulkanApp/src/renderer/Vertex.cpp
-    VulkanApp/include/renderer/Mesh.h
-    VulkanApp/src/renderer/Mesh.cpp
 
     VulkanApp/include/renderer/Renderer.h
     VulkanApp/src/renderer/Renderer.cpp
@@ -46,11 +44,22 @@ target_sources(VulkanApp PRIVATE
     VulkanApp/include/shared/EngineConfig.h
 
     VulkanApp/src/shared/VmaUsage.cpp
-    VulkanApp/src/shared/tiny_obj_loader.cpp
+    "VulkanApp/src/shared/tiny_gltf.cpp"
     "VulkanApp/include/renderer/ParticleComputePipeline.h" 
     "VulkanApp/src/renderer/ParticleComputePipeline.cpp"
+    "VulkanApp/include/renderer/GpuProfiler.h" 
+    "VulkanApp/src/renderer/GpuProfiler.cpp"
     "VulkanApp/compile.bat"
- "VulkanApp/include/renderer/Particle.h" "VulkanApp/src/renderer/Particle.cpp" "VulkanApp/include/renderer/GpuProfiler.h" "VulkanApp/src/renderer/GpuProfiler.cpp")
+    
+    # RESOURCES
+    VulkanApp/include/resources/Vertex.h
+    VulkanApp/src/resources/Vertex.cpp
+    VulkanApp/include/resources/Mesh.h
+    VulkanApp/src/resources/Mesh.cpp
+    "VulkanApp/include/resources/Particle.h"
+    "VulkanApp/src/resources/Particle.cpp"
+ "VulkanApp/src/shared/stb_image.cpp"
+    "VulkanApp/src/shared/tiny_gltf.cpp")
 
 target_link_directories(VulkanApp PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/Lib/lib)
 

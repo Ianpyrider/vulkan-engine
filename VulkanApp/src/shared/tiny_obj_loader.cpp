@@ -1,3 +1,0 @@
-#define TINYOBJLOADER_IMPLEMENTATION
-#define TINYOBJLOADER_DISABLE_FAST_FLOAT
-#include <tiny_obj_loader/tiny_obj_loader.h>
