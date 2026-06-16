@@ -101,7 +101,7 @@ Razer Blade w/ Nvidia RTX 2070 using mailbox presentation
 
 ## Misc
 
-- Supported formats: obj, glb
+- Supported formats: glb
 - Export settings: +Z up, +Y forward
 
 ## Cleanup Todos
