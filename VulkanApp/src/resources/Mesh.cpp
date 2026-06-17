@@ -7,7 +7,8 @@
 #include "core/SwapChainManager.h"
 #include "renderer/GraphicsPipeline.h"
 
-#include <stb/stb_image.h>
+#include <ktx/ktx.h>
+#include <ktx/ktxvulkan.h>
 
 Mesh::Mesh(
     const std::string &filepath, 
@@ -20,9 +21,9 @@ Mesh::Mesh(
         graphicsPipeline(graphicsPipeline)
     {
     
-    loadFromGltf(filepath);
+    //loadFromGltf(filepath);
 
-    /*vertices = {
+    vertices = {
         // Position                 // Color                    // Normal                  // UV
         {{-0.5f, -0.5f,  0.0f},     {1.0f, 0.0f, 0.0f},         {0.0f, 0.0f, 1.0f},        {1.0f, 0.0f}},
         {{ 0.5f, -0.5f,  0.0f},     {1.0f, 0.0f, 0.0f},         {0.0f, 0.0f, 1.0f},        {0.0f, 0.0f}},
@@ -38,10 +39,15 @@ Mesh::Mesh(
     indices = {
         0, 1, 2, 2, 3, 0,
         4, 5, 6, 6, 7, 4
-    };*/
+    };
 
     vertexBuffer = createBuffer(vertices.data(), sizeof(Vertex) * vertices.size(), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
     indexBuffer = createBuffer(indices.data(), sizeof(uint16_t) * indices.size(), VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
+
+    //std::vector<unsigned char> solidPixel = { static_cast<unsigned char>(255.0), static_cast<unsigned char>(255.0), static_cast<unsigned char>(0.0), static_cast<unsigned char>(255.0) };
+    //textureImage = createImage(solidPixel.data(), 1, 1, 4, 4, vk::Format::eR8G8B8A8Unorm);
+
+    textureImage = createImageFromKTXFile("assets/textures/forest_rgba.ktx2");
     
     createImageView();
     createTextureSampler();
@@ -78,9 +84,7 @@ AllocatedBuffer Mesh::createBuffer(const void* data, size_t bufferSize, VkBuffer
     return outputBuffer;
 }
 
-AllocatedImage Mesh::createImage(unsigned char* pixels, int texWidth, int texHeight, int texChannels) {
-    vk::DeviceSize imageSize = texWidth * texHeight * 4;
-
+AllocatedImage Mesh::createImage(unsigned char* pixels, int texWidth, int texHeight, int texChannels, ktx_size_t imageSize) {
     if (!pixels)
     {
         throw std::runtime_error("failed to load texture image!");
@@ -96,8 +100,9 @@ AllocatedImage Mesh::createImage(unsigned char* pixels, int texWidth, int texHei
     void* data = stagingBuffer.info.pMappedData;
     memcpy(data, pixels, imageSize);
 
-    vk::ImageCreateInfo imageInfo{ .imageType = vk::ImageType::e2D,
-        .format = vk::Format::eR8G8B8A8Unorm,
+    vk::ImageCreateInfo imageInfo{ 
+        .imageType = vk::ImageType::e2D,
+        .format = textureFormat,
         .extent = {static_cast<uint32_t>(texWidth), static_cast<uint32_t>(texHeight), 1},
         .mipLevels = 1,
         .arrayLayers = 1,
@@ -149,11 +154,37 @@ AllocatedImage Mesh::createImage(unsigned char* pixels, int texWidth, int texHei
     return image;
 }
 
+AllocatedImage Mesh::createImageFromKTXFile(std::string filename) {
+    // Load KTX2 texture instead of using stb_image
+    ktxTexture* kTexture;
+    KTX_error_code result = ktxTexture_CreateFromNamedFile(
+        filename.c_str(),
+        KTX_TEXTURE_CREATE_LOAD_IMAGE_DATA_BIT,
+        &kTexture);
+
+    if (result != KTX_SUCCESS) {
+        throw std::runtime_error("failed to load ktx texture image!");
+    }
+
+    uint32_t texWidth = kTexture->baseWidth;
+    uint32_t texHeight = kTexture->baseHeight;
+    ktx_size_t imageSize = ktxTexture_GetImageSize(kTexture, 0);
+    ktx_uint8_t* ktxTextureData = ktxTexture_GetData(kTexture);
+    
+    textureFormat = static_cast<vk::Format>(ktxTexture_GetVkFormat(kTexture));
+
+    AllocatedImage out = createImage(ktxTextureData, texWidth, texHeight, 4, imageSize);
+
+    ktxTexture_Destroy(kTexture);
+
+    return out;
+}
+
 void Mesh::createImageView() {
     vk::ImageViewCreateInfo viewInfo{
         .image = textureImage.image,
         .viewType = vk::ImageViewType::e2D,
-        .format = swapChainManager.getSurfaceFormat().format,
+        .format = textureFormat,
         .subresourceRange = { vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1}
     };
 
@@ -413,7 +444,8 @@ void Mesh::loadFromGltf(const std::string& filepath) {
                     gltfImage.image.data(),
                     gltfImage.width,
                     gltfImage.height,
-                    gltfImage.component
+                    gltfImage.component,
+                    gltfImage.width*gltfImage.height*gltfImage.component
                 );
             } else {
                 std::vector<double> baseColor = model.materials[materialIndex].pbrMetallicRoughness.baseColorFactor;
@@ -425,7 +457,7 @@ void Mesh::loadFromGltf(const std::string& filepath) {
                     static_cast<unsigned char>(baseColor[3] * 255.0)
                 };
 
-                textureImage = createImage(solidPixel.data(), 1, 1, 4);
+                textureImage = createImage(solidPixel.data(), 1, 1, 4, 4);
             }
 
             textureLoaded = true;

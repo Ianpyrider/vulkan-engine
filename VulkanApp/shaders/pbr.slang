@@ -7,7 +7,7 @@ struct VSInput {
     float3 Normal : NORMAL;            // Surface normal for lighting calculations
     float2 UV : TEXCOORD0;          // Texture coordinates for material sampling
     // float4 Tangent : TANGENT;       // Tangent vector for normal mapping (w component = handedness)
-    // float2 Bitangent : BITANGENT;
+    // float2 Bitangent : BITANGENT;toktx --version
 };
 
 // Output from vertex shader / Input to fragment shader - Interpolated data
@@ -105,20 +105,19 @@ VSOutput vertMain(VSInput input) {
     return output;
 }
 
-/*[shader("fragment")]
-float4 fragMain(VSOutput input) : SV_Target
-{
-    return float4(input.Color, 1.0);
-    //return texture.Sample(input.UV);
-}*/
-
+// /*
 [shader("fragment")]
 float4 fragMain(VSOutput input) : SV_Target
 {
-    //float3 liftedColor = pow(input.Color, float3(1.0 / 1.3)); // Gamma lift
-    //float3 liftedColor = input.Color;
-    //return float4(liftedColor, 1.0);
+    //return float4(input.Color, 1.0);
+    return texture.Sample(input.UV);
+}
+// */
 
+/*
+[shader("fragment")]
+float4 fragMain(VSOutput input) : SV_Target
+{
     float3 N = normalize(input.Normal);
     float3 V = normalize(ubo.camPos.xyz - input.WorldPos);
     float3 R = reflect(-V, N);
@@ -201,3 +200,4 @@ float4 fragMain(VSOutput input) : SV_Target
     // Output final color with original alpha
     return float4(color, material.baseColorFactor.a);
 }
+*/

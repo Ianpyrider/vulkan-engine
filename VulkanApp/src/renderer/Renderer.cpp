@@ -415,9 +415,11 @@ void Renderer::updateUniformBuffer(uint32_t frameIndex, float totalTime, float d
     ubo.model = glm::mat4(1.0f);
     
     // Orbit camera
-    float radius = 50.f;
-    glm::vec3 center = glm::vec3(0, 0, 2.f);
-    //glm::vec3 center = glm::vec3(0, 0, -0.3f);
+    //float radius = 50.f;
+    //glm::vec3 center = glm::vec3(0, 0, 2.f);
+    
+    float radius = 3.f;
+    glm::vec3 center = glm::vec3(0, 0, -0.3f);
 
     float orbitSpeed = 0.5f;
     float cameraX = sin(totalTime * orbitSpeed) * radius;
@@ -430,7 +432,7 @@ void Renderer::updateUniformBuffer(uint32_t frameIndex, float totalTime, float d
     // Lights
 
     const int LD = 30.f;
-    const int LP = 300.f;
+    const int LP = 1000.f;
 
     // Light 1: White light from above
     ubo.lightPositions[0] = glm::vec4(0.0f, LD, LD, 1.0f);
