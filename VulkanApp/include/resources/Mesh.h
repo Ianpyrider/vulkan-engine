@@ -51,8 +51,9 @@ private:
 	PushConstantBlock pbrPushConstants;
 
 	AllocatedBuffer createBuffer(const void* data, size_t bufferSize, VkBufferUsageFlags usage);
-	AllocatedImage createImage(unsigned char* pixels, int texWidth, int texHeight, int texChannels, vk::DeviceSize imageSize);
-	AllocatedImage createImageFromKTXFile(std::string filename);
+	AllocatedImage createImage(unsigned char* pixels, int texWidth, int texHeight, int texChannels);
+
+	void createImageFromKTXFile(std::string filename);
 	void createImageView();
 	void createTextureSampler();
 

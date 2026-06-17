@@ -23,7 +23,6 @@ public:
     float getTimestampPeriod() const { return physicalDevice.getProperties().limits.timestampPeriod; }
     AllocatedBuffer createVmaBuffer(VkDeviceSize size, VkBufferUsageFlags bufferFlags, VmaAllocationCreateFlags allocationFlags, VmaMemoryUsage usage);
     void copyBuffer(AllocatedBuffer src, AllocatedBuffer dst, vk::DeviceSize size);
-    void copyBufferToImage(vk::raii::CommandBuffer& cmd, AllocatedBuffer src, AllocatedImage dst, uint32_t width, uint32_t height);
     AllocatedImage createVmaImage(vk::ImageCreateInfo info, VmaAllocationCreateInfo allocCreateInfo);
     void destroyVmaImage(vk::Image image, VmaAllocation& allocation);
     void resetQueryPool(uint32_t frameIndex);
@@ -40,7 +39,8 @@ public:
         vk::PipelineStageFlags2 srcStageMask,
         vk::PipelineStageFlags2 dstStageMask,
         vk::ImageAspectFlags imageAspectFlags,
-        vk::raii::CommandBuffer& curCommandBuffer
+        vk::raii::CommandBuffer& curCommandBuffer,
+        uint32_t layerCount = 1
     );
 private:
     void createInstance();

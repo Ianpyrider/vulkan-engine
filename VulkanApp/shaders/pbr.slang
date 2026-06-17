@@ -16,7 +16,8 @@ struct VSOutput {
     float3 WorldPos : POSITION;    // World space position for lighting calculations
     float3 Normal : NORMAL;        // World space normal (interpolated)
     float3 Color : COLOR;
-    float2 UV : TEXCOORD0;         // Texture coordinates (interpolated)
+    float2 UV : TEXCOORD0; // Texture coordinates (interpolated)
+    float3 ObjPos;
     // float4 Tangent : TANGENT;      // World space tangent (interpolated)
 };
 
@@ -53,7 +54,8 @@ static const float PI = 3.14159265359;
 
 // Resource bindings - Connect CPU resources to GPU shader registers
 [[vk::binding(0, 0)]] ConstantBuffer<UniformBufferObject> ubo;
-[[vk::binding(0, 1)]] Sampler2D texture;
+//[[vk::binding(0, 1)]] Sampler2D texture;
+[[vk::binding(0, 1)]] SamplerCube environmentMap;
 
 [[vk::push_constant]] PushConstants material;
 
@@ -101,6 +103,7 @@ VSOutput vertMain(VSInput input) {
     output.Normal = mul((float3x3)ubo.model, input.Normal);
     output.Color = input.Color;
     output.UV = input.UV;
+    output.ObjPos = input.Position;
     
     return output;
 }
@@ -109,8 +112,8 @@ VSOutput vertMain(VSInput input) {
 [shader("fragment")]
 float4 fragMain(VSOutput input) : SV_Target
 {
-    //return float4(input.Color, 1.0);
-    return texture.Sample(input.UV);
+    float3 lookupDirection = float3(input.ObjPos.x, input.ObjPos.z, input.ObjPos.y);
+    return environmentMap.Sample(lookupDirection);
 }
 // */
 
