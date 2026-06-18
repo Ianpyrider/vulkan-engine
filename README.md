@@ -101,10 +101,11 @@ Razer Blade w/ Nvidia RTX 2070 using mailbox presentation
 
 ## Misc
 
-- Supported formats: glb
+- Supported formats: glb, ktx2
 - Export settings: +Z up, +Y forward
 
 ## Cleanup Todos
 
+- Badly need a scene class (and a camera while we're at it), too much is now done in Renderer/Mesh
 - Context can possibly handle staging buffer and image views in context.createVMAImage()
-- Write isDeviceSuitable() 
+- Write isDeviceSuitable()
