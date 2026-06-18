@@ -335,19 +335,6 @@ void VulkanContext::copyBuffer(AllocatedBuffer src, AllocatedBuffer dst, vk::Dev
     endSingleTimeCommands(std::move(commandCopyBuffer));
 }
 
-void VulkanContext::copyBufferToImage(vk::raii::CommandBuffer& cmd, AllocatedBuffer src, AllocatedImage dst, uint32_t width, uint32_t height) {
-    vk::BufferImageCopy region{ 
-        .bufferOffset = 0,
-        .bufferRowLength = 0,
-        .bufferImageHeight = 0,
-        .imageSubresource = {.aspectMask = vk::ImageAspectFlagBits::eColor, .mipLevel = 0, .baseArrayLayer = 0, .layerCount = 1},
-        .imageOffset = {0, 0, 0},
-        .imageExtent = {width, height, 1} 
-    };
-
-    cmd.copyBufferToImage(src.buffer, dst.image, vk::ImageLayout::eTransferDstOptimal, region);
-}
-
 AllocatedImage VulkanContext::createVmaImage(vk::ImageCreateInfo info, VmaAllocationCreateInfo allocCreateInfo) {
     VkImage image;
     VmaAllocation alloc;
@@ -453,7 +440,8 @@ void VulkanContext::transitionImageLayout(
     vk::PipelineStageFlags2 srcStageMask,
     vk::PipelineStageFlags2 dstStageMask,
     vk::ImageAspectFlags imageAspectFlags,
-    vk::raii::CommandBuffer& curCommandBuffer
+    vk::raii::CommandBuffer& curCommandBuffer,
+    uint32_t layerCount
 ) {
     vk::ImageMemoryBarrier2 barrier = {
         .srcStageMask = srcStageMask,
@@ -470,7 +458,7 @@ void VulkanContext::transitionImageLayout(
             .baseMipLevel = 0,
             .levelCount = 1,
             .baseArrayLayer = 0,
-            .layerCount = 1
+            .layerCount = layerCount
         }
     };
 

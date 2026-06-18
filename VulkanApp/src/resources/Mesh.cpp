@@ -7,27 +7,30 @@
 #include "core/SwapChainManager.h"
 #include "renderer/GraphicsPipeline.h"
 
-#include <stb/stb_image.h>
+#include <ktx/ktx.h>
+#include <ktx/ktxvulkan.h>
 
 Mesh::Mesh(
-    const std::string &filepath, 
+    const std::string& filepath,
     VulkanContext& context,
     SwapChainManager& swapChainManager,
     GraphicsPipeline& graphicsPipeline,
-    vk::raii::DescriptorPool& descriptorPool) : 
-        context(context), 
-        swapChainManager(swapChainManager), 
-        graphicsPipeline(graphicsPipeline)
-    {
-    
-    loadFromGltf(filepath);
+    vk::raii::DescriptorPool& descriptorPool) :
+    context(context),
+    swapChainManager(swapChainManager),
+    graphicsPipeline(graphicsPipeline)
+{
 
-    /*vertices = {
+    loadFromGltf(filepath);
+    textureImage = createImageFromKTXFile("assets/textures/forest_irradiance.ktx");
+
+    /*
+    vertices = {
         // Position                 // Color                    // Normal                  // UV
-        {{-0.5f, -0.5f,  0.0f},     {1.0f, 0.0f, 0.0f},         {0.0f, 0.0f, 1.0f},        {1.0f, 0.0f}},
-        {{ 0.5f, -0.5f,  0.0f},     {1.0f, 0.0f, 0.0f},         {0.0f, 0.0f, 1.0f},        {0.0f, 0.0f}},
-        {{ 0.5f,  0.5f,  0.0f},     {1.0f, 1.0f, 1.0f},         {0.0f, 0.0f, 1.0f},        {0.0f, 1.0f}},
-        {{-0.5f,  0.5f,  0.0f},     {1.0f, 1.0f, 1.0f},         {0.0f, 0.0f, 1.0f},        {1.0f, 1.0f}},
+        {{-0.5f, -0.5f,  0.5f},     {1.0f, 0.0f, 0.0f},         {0.0f, 0.0f, 1.0f},        {1.0f, 0.0f}},
+        {{ 0.5f, -0.5f,  0.5f},     {1.0f, 0.0f, 0.0f},         {0.0f, 0.0f, 1.0f},        {0.0f, 0.0f}},
+        {{ 0.5f,  0.5f,  0.5f},     {1.0f, 1.0f, 1.0f},         {0.0f, 0.0f, 1.0f},        {0.0f, 1.0f}},
+        {{-0.5f,  0.5f,  0.5f},     {1.0f, 1.0f, 1.0f},         {0.0f, 0.0f, 1.0f},        {1.0f, 1.0f}},
 
         {{-0.5f, -0.5f, -0.5f},     {1.0f, 0.0f, 0.0f},         {0.0f, 0.0f, -1.0f},       {1.0f, 0.0f}},
         {{ 0.5f, -0.5f, -0.5f},     {0.0f, 1.0f, 0.0f},         {0.0f, 0.0f, -1.0f},       {0.0f, 0.0f}},
@@ -36,13 +39,35 @@ Mesh::Mesh(
     };
 
     indices = {
-        0, 1, 2, 2, 3, 0,
-        4, 5, 6, 6, 7, 4
-    };*/
+        // Top face
+        0, 1, 2,
+        2, 3, 0,
+
+        // Bottom face
+        5, 4, 7,
+        7, 6, 5,
+
+        4, 0, 3,
+        3, 7, 4,
+
+        1, 5, 6,
+        6, 2, 1,
+
+        3, 2, 6,
+        6, 7, 3,
+
+        4, 5, 1,
+        1, 0, 4
+    };
+
+    */
 
     vertexBuffer = createBuffer(vertices.data(), sizeof(Vertex) * vertices.size(), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
     indexBuffer = createBuffer(indices.data(), sizeof(uint16_t) * indices.size(), VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
-    
+
+    //std::vector<unsigned char> solidPixel = { static_cast<unsigned char>(255.0), static_cast<unsigned char>(255.0), static_cast<unsigned char>(0.0), static_cast<unsigned char>(255.0) };
+    //textureImage = createImage(solidPixel.data(), 1, 1, 4, 4, vk::Format::eR8G8B8A8Unorm);
+
     createImageView();
     createTextureSampler();
     createMeshDescriptorSet(descriptorPool);
@@ -78,8 +103,121 @@ AllocatedBuffer Mesh::createBuffer(const void* data, size_t bufferSize, VkBuffer
     return outputBuffer;
 }
 
+AllocatedImage Mesh::createImageFromKTXFile(std::string filename) {
+    // Load KTX2 texture instead of using stb_image
+    ktxTexture* kTexture;
+    KTX_error_code result = ktxTexture_CreateFromNamedFile(
+        filename.c_str(),
+        KTX_TEXTURE_CREATE_LOAD_IMAGE_DATA_BIT,
+        &kTexture);
+
+    if (result != KTX_SUCCESS) {
+        throw std::runtime_error("failed to load ktx texture image!");
+    }
+
+    uint32_t texWidth = kTexture->baseWidth;
+    uint32_t texHeight = kTexture->baseHeight;
+    ktx_size_t imageSize = ktxTexture_GetDataSize(kTexture);
+    ktx_uint8_t* ktxTextureData = ktxTexture_GetData(kTexture);
+    
+    textureFormat = static_cast<vk::Format>(ktxTexture_GetVkFormat(kTexture));
+
+    // Create Image!
+    AllocatedBuffer stagingBuffer = context.createVmaBuffer(
+        imageSize,
+        VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+        VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT,
+        VMA_MEMORY_USAGE_AUTO
+    );
+
+    void* data = stagingBuffer.info.pMappedData;
+    memcpy(data, ktxTextureData, imageSize);
+
+    vk::ImageCreateInfo imageInfo{
+        .imageType = vk::ImageType::e2D,
+        .format = textureFormat,
+        .extent = {static_cast<uint32_t>(texWidth), static_cast<uint32_t>(texHeight), 1},
+        .mipLevels = 1,
+        .arrayLayers = 6,
+        .samples = vk::SampleCountFlagBits::e1,
+        .tiling = vk::ImageTiling::eOptimal,
+        .usage = vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled,
+        .sharingMode = vk::SharingMode::eExclusive,
+    };
+
+    imageInfo.flags = vk::ImageCreateFlagBits::eCubeCompatible;
+
+    VmaAllocationCreateInfo allocCreateInfo = {};
+    allocCreateInfo.usage = VMA_MEMORY_USAGE_AUTO;
+    allocCreateInfo.flags = VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT;
+    allocCreateInfo.priority = 1.0f;
+
+    AllocatedImage image = context.createVmaImage(imageInfo, allocCreateInfo);
+
+    vk::raii::CommandBuffer commandBuffer = context.beginSingleTimeCommands();
+
+    context.transitionImageLayout(
+        image.image,
+        vk::ImageLayout::eUndefined,
+        vk::ImageLayout::eTransferDstOptimal,
+        vk::AccessFlagBits2::eNone,                     // srcAccessMask
+        vk::AccessFlagBits2::eTransferWrite,            // dstAccessMask
+        vk::PipelineStageFlagBits2::eTopOfPipe,         // srcStage
+        vk::PipelineStageFlagBits2::eTransfer,          // dstStage
+        vk::ImageAspectFlagBits::eColor,
+        commandBuffer,
+        6
+    );
+
+    std::vector<vk::BufferImageCopy> copyRegions;
+    copyRegions.reserve(6);
+
+    for (int i = 0; i < 6; i++) {
+        size_t offset;
+        ktxTexture_GetImageOffset(kTexture, 0, 0, i, &offset);
+
+        vk::BufferImageCopy region{};
+        region.bufferOffset = offset;
+        region.bufferRowLength = 0;
+        region.bufferImageHeight = 0;
+
+        region.imageSubresource.aspectMask = vk::ImageAspectFlagBits::eColor;
+        region.imageSubresource.mipLevel = 0;
+        region.imageSubresource.baseArrayLayer = static_cast<uint32_t>(i);
+        region.imageSubresource.layerCount = 1;
+
+        region.imageOffset = vk::Offset3D{ 0, 0, 0 };
+        region.imageExtent = vk::Extent3D{ static_cast<uint32_t>(texWidth), static_cast<uint32_t>(texHeight), 1 };
+
+        copyRegions.push_back(region);
+    }
+
+    commandBuffer.copyBufferToImage(stagingBuffer.buffer, image.image, vk::ImageLayout::eTransferDstOptimal, copyRegions);
+
+    context.transitionImageLayout(
+        image.image,
+        vk::ImageLayout::eTransferDstOptimal,
+        vk::ImageLayout::eShaderReadOnlyOptimal,
+        vk::AccessFlagBits2::eTransferWrite,                     // srcAccessMask
+        vk::AccessFlagBits2::eShaderRead,            // dstAccessMask
+        vk::PipelineStageFlagBits2::eTransfer,         // srcStage
+        vk::PipelineStageFlagBits2::eFragmentShader,          // dstStage
+        vk::ImageAspectFlagBits::eColor,
+        commandBuffer,
+        6
+    );
+
+    context.endSingleTimeCommands(std::move(commandBuffer));
+
+    vmaDestroyBuffer(context.getVmaAllocator(), stagingBuffer.buffer, stagingBuffer.allocation);
+    ktxTexture_Destroy(kTexture);
+
+    return image;
+}
+
+// TODO: Consolidate this with ktx image, ideally make a general staging function in Context? Ignoring DRY for clarity before cleanup
 AllocatedImage Mesh::createImage(unsigned char* pixels, int texWidth, int texHeight, int texChannels) {
-    vk::DeviceSize imageSize = texWidth * texHeight * 4;
+    vk::DeviceSize imageSize = texWidth * texHeight * texChannels;
 
     if (!pixels)
     {
@@ -96,8 +234,9 @@ AllocatedImage Mesh::createImage(unsigned char* pixels, int texWidth, int texHei
     void* data = stagingBuffer.info.pMappedData;
     memcpy(data, pixels, imageSize);
 
-    vk::ImageCreateInfo imageInfo{ .imageType = vk::ImageType::e2D,
-        .format = vk::Format::eR8G8B8A8Unorm,
+    vk::ImageCreateInfo imageInfo{
+        .imageType = vk::ImageType::e2D,
+        .format = textureFormat,
         .extent = {static_cast<uint32_t>(texWidth), static_cast<uint32_t>(texHeight), 1},
         .mipLevels = 1,
         .arrayLayers = 1,
@@ -128,7 +267,16 @@ AllocatedImage Mesh::createImage(unsigned char* pixels, int texWidth, int texHei
         commandBuffer
     );
 
-    context.copyBufferToImage(commandBuffer, stagingBuffer, image, static_cast<uint32_t>(texWidth), static_cast<uint32_t>(texHeight));
+    vk::BufferImageCopy copyRegions{
+        .bufferOffset = 0,
+        .bufferRowLength = 0,
+        .bufferImageHeight = 0,
+        .imageSubresource = {.aspectMask = vk::ImageAspectFlagBits::eColor, .mipLevel = 0, .baseArrayLayer = 0, .layerCount = 1},
+        .imageOffset = {0, 0, 0},
+        .imageExtent = {static_cast<uint32_t>(texWidth), static_cast<uint32_t>(texHeight), 1}
+    };
+
+    commandBuffer.copyBufferToImage(stagingBuffer.buffer, image.image, vk::ImageLayout::eTransferDstOptimal, copyRegions);
 
     context.transitionImageLayout(
         image.image,
@@ -152,9 +300,9 @@ AllocatedImage Mesh::createImage(unsigned char* pixels, int texWidth, int texHei
 void Mesh::createImageView() {
     vk::ImageViewCreateInfo viewInfo{
         .image = textureImage.image,
-        .viewType = vk::ImageViewType::e2D,
-        .format = swapChainManager.getSurfaceFormat().format,
-        .subresourceRange = { vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1}
+        .viewType = vk::ImageViewType::eCube,
+        .format = textureFormat,
+        .subresourceRange = vk::ImageSubresourceRange({ vk::ImageAspectFlagBits::eColor, 0, 1, 0, 6}) // Last is layercount
     };
 
     textureImageView = vk::raii::ImageView(context.getDevice(), viewInfo);
@@ -403,6 +551,7 @@ void Mesh::loadFromGltf(const std::string& filepath) {
 
             setMaterial(model.materials[materialIndex]);
             
+            /*
             int textureIndex = model.materials[materialIndex].pbrMetallicRoughness.baseColorTexture.index;
 
             if (textureIndex >= 0) {
@@ -427,6 +576,7 @@ void Mesh::loadFromGltf(const std::string& filepath) {
 
                 textureImage = createImage(solidPixel.data(), 1, 1, 4);
             }
+            */
 
             textureLoaded = true;
         }

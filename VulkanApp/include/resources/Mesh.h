@@ -46,11 +46,14 @@ private:
 	vk::raii::ImageView textureImageView = nullptr;
 	vk::raii::Sampler textureSampler = nullptr;
 	std::vector<vk::raii::DescriptorSet> descriptorSets;
+	vk::Format textureFormat = vk::Format::eR8G8B8A8Unorm;
 
 	PushConstantBlock pbrPushConstants;
 
 	AllocatedBuffer createBuffer(const void* data, size_t bufferSize, VkBufferUsageFlags usage);
 	AllocatedImage createImage(unsigned char* pixels, int texWidth, int texHeight, int texChannels);
+	AllocatedImage createImageFromKTXFile(std::string filename);
+
 	void createImageView();
 	void createTextureSampler();
 

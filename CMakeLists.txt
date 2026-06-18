@@ -12,6 +12,7 @@ target_include_directories(VulkanApp PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/Lib/include
     ${CMAKE_CURRENT_SOURCE_DIR}/Lib/include/stb
     ${CMAKE_CURRENT_SOURCE_DIR}/Lib/include/nlohmann
+    ${CMAKE_CURRENT_SOURCE_DIR}/Lib/include/ktx
     ${CMAKE_CURRENT_SOURCE_DIR}/VulkanApp/include
 )
 
@@ -58,14 +59,15 @@ target_sources(VulkanApp PRIVATE
     VulkanApp/src/resources/Mesh.cpp
     "VulkanApp/include/resources/Particle.h"
     "VulkanApp/src/resources/Particle.cpp"
- "VulkanApp/src/shared/stb_image.cpp"
-    "VulkanApp/src/shared/tiny_gltf.cpp")
+ "VulkanApp/src/shared/ktx.cpp"
+    "VulkanApp/src/shared/tiny_gltf.cpp"  )
 
 target_link_directories(VulkanApp PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/Lib/lib)
 
 target_link_libraries(VulkanApp PRIVATE 
     Vulkan::Vulkan
     glfw3
+    ktx
 )
 
 file(GLOB_RECURSE SHADER_FILES 

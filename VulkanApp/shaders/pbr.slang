@@ -7,7 +7,7 @@ struct VSInput {
     float3 Normal : NORMAL;            // Surface normal for lighting calculations
     float2 UV : TEXCOORD0;          // Texture coordinates for material sampling
     // float4 Tangent : TANGENT;       // Tangent vector for normal mapping (w component = handedness)
-    // float2 Bitangent : BITANGENT;
+    // float2 Bitangent : BITANGENT;toktx --version
 };
 
 // Output from vertex shader / Input to fragment shader - Interpolated data
@@ -16,7 +16,7 @@ struct VSOutput {
     float3 WorldPos : POSITION;    // World space position for lighting calculations
     float3 Normal : NORMAL;        // World space normal (interpolated)
     float3 Color : COLOR;
-    float2 UV : TEXCOORD0;         // Texture coordinates (interpolated)
+    float2 UV : TEXCOORD0; // Texture coordinates (interpolated)
     // float4 Tangent : TANGENT;      // World space tangent (interpolated)
 };
 
@@ -53,7 +53,8 @@ static const float PI = 3.14159265359;
 
 // Resource bindings - Connect CPU resources to GPU shader registers
 [[vk::binding(0, 0)]] ConstantBuffer<UniformBufferObject> ubo;
-[[vk::binding(0, 1)]] Sampler2D texture;
+//[[vk::binding(0, 1)]] Sampler2D texture;
+[[vk::binding(0, 1)]] SamplerCube environmentMap;
 
 [[vk::push_constant]] PushConstants material;
 
@@ -105,25 +106,26 @@ VSOutput vertMain(VSInput input) {
     return output;
 }
 
-/*[shader("fragment")]
+/*
+[shader("fragment")]
 float4 fragMain(VSOutput input) : SV_Target
 {
-    return float4(input.Color, 1.0);
-    //return texture.Sample(input.UV);
-}*/
+    float3 lookupDirection = float3(input.Normal.x, input.Normal.z, input.Normal.y);
+    return environmentMap.Sample(lookupDirection);
+
+    //return float4(input.Color, 1.0);
+}
+*/
 
 [shader("fragment")]
 float4 fragMain(VSOutput input) : SV_Target
 {
-    //float3 liftedColor = pow(input.Color, float3(1.0 / 1.3)); // Gamma lift
-    //float3 liftedColor = input.Color;
-    //return float4(liftedColor, 1.0);
-
     float3 N = normalize(input.Normal);
     float3 V = normalize(ubo.camPos.xyz - input.WorldPos);
     float3 R = reflect(-V, N);
 
-    float3 albedo = input.Color * material.baseColorFactor.rgb;
+    // float3 albedo = input.Color * material.baseColorFactor.rgb;
+    float3 albedo = input.Color;
 
     // === PBR MATERIAL SETUP ===
     // Calculate F0 (reflectance at normal incidence)
@@ -137,6 +139,7 @@ float4 fragMain(VSOutput input) : SV_Target
     // === DIRECT LIGHTING LOOP ===
     // Calculate contribution from each light source
     for (int i = 0; i < 4; i++) {
+
         float3 lightPos = ubo.lightPositions[i].xyz;
         float3 lightColor = ubo.lightColors[i].rgb;
 
@@ -184,8 +187,11 @@ float4 fragMain(VSOutput input) : SV_Target
     float ao = 1.0; // hardcoded for now
     float emissive = 0.0;
 
-    // Add simple ambient lighting (should be replaced with IBL in production)
-    float3 ambient = float3(0.03, 0.03, 0.03) * albedo * ao;
+    // Add simple ambient lighting (should be replaced with IBL in production
+    float3 sampleIBL = environmentMap.Sample(float3(input.Normal.x, input.Normal.z, input.Normal.y)).xyz;
+    //float sampleIBL = 1.0;
+
+    float3 ambient = sampleIBL * albedo * ao;
 
     // Combine all lighting contributions
     float3 color = ambient + Lo + emissive;
