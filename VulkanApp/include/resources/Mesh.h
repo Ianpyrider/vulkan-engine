@@ -52,8 +52,8 @@ private:
 
 	AllocatedBuffer createBuffer(const void* data, size_t bufferSize, VkBufferUsageFlags usage);
 	AllocatedImage createImage(unsigned char* pixels, int texWidth, int texHeight, int texChannels);
+	AllocatedImage createImageFromKTXFile(std::string filename);
 
-	void createImageFromKTXFile(std::string filename);
 	void createImageView();
 	void createTextureSampler();
 

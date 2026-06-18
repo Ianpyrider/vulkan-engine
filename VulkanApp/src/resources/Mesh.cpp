@@ -21,8 +21,10 @@ Mesh::Mesh(
     graphicsPipeline(graphicsPipeline)
 {
 
-    //loadFromGltf(filepath);
+    loadFromGltf(filepath);
+    textureImage = createImageFromKTXFile("assets/textures/forest_irradiance.ktx");
 
+    /*
     vertices = {
         // Position                 // Color                    // Normal                  // UV
         {{-0.5f, -0.5f,  0.5f},     {1.0f, 0.0f, 0.0f},         {0.0f, 0.0f, 1.0f},        {1.0f, 0.0f}},
@@ -58,13 +60,14 @@ Mesh::Mesh(
         1, 0, 4
     };
 
+    */
+
     vertexBuffer = createBuffer(vertices.data(), sizeof(Vertex) * vertices.size(), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
     indexBuffer = createBuffer(indices.data(), sizeof(uint16_t) * indices.size(), VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
 
     //std::vector<unsigned char> solidPixel = { static_cast<unsigned char>(255.0), static_cast<unsigned char>(255.0), static_cast<unsigned char>(0.0), static_cast<unsigned char>(255.0) };
     //textureImage = createImage(solidPixel.data(), 1, 1, 4, 4, vk::Format::eR8G8B8A8Unorm);
 
-    createImageFromKTXFile("assets/textures/forest_irradiance.ktx");
     createImageView();
     createTextureSampler();
     createMeshDescriptorSet(descriptorPool);
@@ -100,7 +103,7 @@ AllocatedBuffer Mesh::createBuffer(const void* data, size_t bufferSize, VkBuffer
     return outputBuffer;
 }
 
-void Mesh::createImageFromKTXFile(std::string filename) {
+AllocatedImage Mesh::createImageFromKTXFile(std::string filename) {
     // Load KTX2 texture instead of using stb_image
     ktxTexture* kTexture;
     KTX_error_code result = ktxTexture_CreateFromNamedFile(
@@ -206,10 +209,10 @@ void Mesh::createImageFromKTXFile(std::string filename) {
 
     context.endSingleTimeCommands(std::move(commandBuffer));
 
-    textureImage = image;
-
     vmaDestroyBuffer(context.getVmaAllocator(), stagingBuffer.buffer, stagingBuffer.allocation);
     ktxTexture_Destroy(kTexture);
+
+    return image;
 }
 
 // TODO: Consolidate this with ktx image, ideally make a general staging function in Context? Ignoring DRY for clarity before cleanup
@@ -548,6 +551,7 @@ void Mesh::loadFromGltf(const std::string& filepath) {
 
             setMaterial(model.materials[materialIndex]);
             
+            /*
             int textureIndex = model.materials[materialIndex].pbrMetallicRoughness.baseColorTexture.index;
 
             if (textureIndex >= 0) {
@@ -572,6 +576,7 @@ void Mesh::loadFromGltf(const std::string& filepath) {
 
                 textureImage = createImage(solidPixel.data(), 1, 1, 4);
             }
+            */
 
             textureLoaded = true;
         }

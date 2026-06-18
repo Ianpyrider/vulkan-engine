@@ -17,7 +17,6 @@ struct VSOutput {
     float3 Normal : NORMAL;        // World space normal (interpolated)
     float3 Color : COLOR;
     float2 UV : TEXCOORD0; // Texture coordinates (interpolated)
-    float3 ObjPos;
     // float4 Tangent : TANGENT;      // World space tangent (interpolated)
 };
 
@@ -103,21 +102,21 @@ VSOutput vertMain(VSInput input) {
     output.Normal = mul((float3x3)ubo.model, input.Normal);
     output.Color = input.Color;
     output.UV = input.UV;
-    output.ObjPos = input.Position;
     
     return output;
 }
 
-// /*
+/*
 [shader("fragment")]
 float4 fragMain(VSOutput input) : SV_Target
 {
-    float3 lookupDirection = float3(input.ObjPos.x, input.ObjPos.z, input.ObjPos.y);
+    float3 lookupDirection = float3(input.Normal.x, input.Normal.z, input.Normal.y);
     return environmentMap.Sample(lookupDirection);
-}
-// */
 
-/*
+    //return float4(input.Color, 1.0);
+}
+*/
+
 [shader("fragment")]
 float4 fragMain(VSOutput input) : SV_Target
 {
@@ -125,7 +124,8 @@ float4 fragMain(VSOutput input) : SV_Target
     float3 V = normalize(ubo.camPos.xyz - input.WorldPos);
     float3 R = reflect(-V, N);
 
-    float3 albedo = input.Color * material.baseColorFactor.rgb;
+    // float3 albedo = input.Color * material.baseColorFactor.rgb;
+    float3 albedo = input.Color;
 
     // === PBR MATERIAL SETUP ===
     // Calculate F0 (reflectance at normal incidence)
@@ -139,6 +139,7 @@ float4 fragMain(VSOutput input) : SV_Target
     // === DIRECT LIGHTING LOOP ===
     // Calculate contribution from each light source
     for (int i = 0; i < 4; i++) {
+
         float3 lightPos = ubo.lightPositions[i].xyz;
         float3 lightColor = ubo.lightColors[i].rgb;
 
@@ -186,8 +187,11 @@ float4 fragMain(VSOutput input) : SV_Target
     float ao = 1.0; // hardcoded for now
     float emissive = 0.0;
 
-    // Add simple ambient lighting (should be replaced with IBL in production)
-    float3 ambient = float3(0.03, 0.03, 0.03) * albedo * ao;
+    // Add simple ambient lighting (should be replaced with IBL in production
+    float3 sampleIBL = environmentMap.Sample(float3(input.Normal.x, input.Normal.z, input.Normal.y)).xyz;
+    //float sampleIBL = 1.0;
+
+    float3 ambient = sampleIBL * albedo * ao;
 
     // Combine all lighting contributions
     float3 color = ambient + Lo + emissive;
@@ -203,4 +207,3 @@ float4 fragMain(VSOutput input) : SV_Target
     // Output final color with original alpha
     return float4(color, material.baseColorFactor.a);
 }
-*/
