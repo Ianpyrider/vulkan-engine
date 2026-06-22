@@ -2,7 +2,7 @@
 
 Inspired by the low-poly, uncanny-valley fantasy worlds of the N64 era, I wanted to explore what an engine with modern graphics programming and GPU capabilities would be capable of in this style. I hope to use this engine as a sandbox to explore my love of physical simulation and raytracing in the highest performance environment possible, all while capturing the essence of what is, in my opinion, the most immersive and magical era of 3D graphical worlds!          
 
-https://github.com/user-attachments/assets/210e7ea4-8985-48f2-a35f-1aedb52068a5
+https://github.com/user-attachments/assets/e26ba76e-f118-42b2-bc8a-f953c8b5598a
 
 (You can see the dithering pattern more easily in fullscreen! For more info: https://en.wikipedia.org/wiki/Dither)
 
