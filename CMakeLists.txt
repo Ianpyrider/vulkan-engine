@@ -60,7 +60,7 @@ target_sources(VulkanApp PRIVATE
     "VulkanApp/include/resources/Particle.h"
     "VulkanApp/src/resources/Particle.cpp"
  "VulkanApp/src/shared/ktx.cpp"
-    "VulkanApp/src/shared/tiny_gltf.cpp"   "VulkanApp/include/resources/Scene.h" "VulkanApp/src/resources/Scene.cpp")
+    "VulkanApp/src/shared/tiny_gltf.cpp"    )
 
 target_link_directories(VulkanApp PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/Lib/lib)
 

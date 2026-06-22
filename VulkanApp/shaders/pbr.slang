@@ -93,11 +93,6 @@ float3 FresnelSchlick(float cosTheta, float3 F0) {
     return F0 + (1.0 - F0) * pow(1.0 - cosTheta, 5.0);
 }
 
-float3 FresnelSchlickRoughness(float cosTheta, float3 F0, float roughness)
-{
-    return F0 + (max(float3(1.0 - roughness), F0) - F0) * pow(clamp(1.0 - cosTheta, 0.0, 1.0), 5.0);
-}
-
 [shader("vertex")]
 VSOutput vertMain(VSInput input) {
     VSOutput output;
@@ -127,9 +122,6 @@ float4 fragMain(VSOutput input) : SV_Target
 float4 fragMain(VSOutput input) : SV_Target
 {
     float3 N = normalize(input.Normal);
-    //float3 R = N;
-    //float3 V = R;
-
     float3 V = normalize(ubo.camPos.xyz - input.WorldPos);
     float3 R = reflect(-V, N);
 
