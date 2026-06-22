@@ -4,7 +4,8 @@ Inspired by the low-poly, uncanny-valley fantasy worlds of the N64 era, I wanted
 
 https://github.com/user-attachments/assets/e2da4894-a5f1-4a10-a4d1-e1ac92a8cb72
 
-(You can see the dithering pattern more easily in fullscreen! For more info: https://en.wikipedia.org/wiki/Dither)
+(Any flickering in the above video is from video compression, not the engine!)
+(You can see higher-resolution videos [here](https://drive.google.com/drive/folders/1RuTlKfS5ByytJX86bpSLj4BJhoJWe3jR?usp=sharing), check out the dithering patterns!)
 
 ## Engine Features
 
@@ -14,6 +15,7 @@ https://github.com/user-attachments/assets/e2da4894-a5f1-4a10-a4d1-e1ac92a8cb72
  	- Standard optimizations: Frames in flight, staging buffers, dynamic device feature polling
 - Vulkan Memory Allocator (VMA) for more efficient/safe memory allocation
 - GPU Profiling via command buffer timestamp queries for identifying performance bottlenecks
+- Physically Based Rendering (PBR) with Image Based-lighting (IBL), using optimized GLB + KTX pipelines
 - Build System: CMake
 - Robust architecture emphasizing separation of concerns in idiomatic Vulkan, supporting all manner of future development and developers!
 
@@ -85,7 +87,8 @@ Razer Blade w/ Nvidia RTX 2070 using mailbox presentation
 ## Feature Goals
 
 - Realtime ray tracing! https://docs.vulkan.org/tutorial/latest/courses/18_Ray_tracing/00_Overview.html 
-	- PBR would also be cool to implement, especially if raytracing is too intense/doesn't capture the style well (not that PBR necessarily will but it's coool)
+	- ~~PBR would also be cool to implement, especially if raytracing is too intense/doesn't capture the style well (not that PBR necessarily will but it's coool)~~
+- Probably Deferred Rendering now that I have PBR
 - Keep! On! Optimizing! I want to learn more about platform-specific optimizations and different physical device features I can poll for 
 - I really want to do something physics based, I'd love to look into fluid simulation the most but I also could do FEM-based mesh warping/collision or interactive particle simulation
 - Make a basic game demo using the engine!
