@@ -7,7 +7,7 @@ struct VSInput {
     float3 Normal : NORMAL;            // Surface normal for lighting calculations
     float2 UV : TEXCOORD0;          // Texture coordinates for material sampling
     // float4 Tangent : TANGENT;       // Tangent vector for normal mapping (w component = handedness)
-    // float2 Bitangent : BITANGENT;toktx --version
+    // float2 Bitangent : BITANGENT;
 };
 
 // Output from vertex shader / Input to fragment shader - Interpolated data
@@ -53,8 +53,9 @@ static const float PI = 3.14159265359;
 
 // Resource bindings - Connect CPU resources to GPU shader registers
 [[vk::binding(0, 0)]] ConstantBuffer<UniformBufferObject> ubo;
-//[[vk::binding(0, 1)]] Sampler2D texture;
-[[vk::binding(0, 1)]] SamplerCube environmentMap;
+[[vk::binding(0, 1)]] SamplerCube irradianceMap;
+[[vk::binding(1, 1)]] SamplerCube radianceMap;
+[[vk::binding(2, 1)]] Sampler2D brdfLUT;
 
 [[vk::push_constant]] PushConstants material;
 
@@ -92,6 +93,11 @@ float3 FresnelSchlick(float cosTheta, float3 F0) {
     return F0 + (1.0 - F0) * pow(1.0 - cosTheta, 5.0);
 }
 
+float3 FresnelSchlickRoughness(float cosTheta, float3 F0, float roughness)
+{
+    return F0 + (max(float3(1.0 - roughness), F0) - F0) * pow(clamp(1.0 - cosTheta, 0.0, 1.0), 5.0);
+}
+
 [shader("vertex")]
 VSOutput vertMain(VSInput input) {
     VSOutput output;
@@ -121,6 +127,9 @@ float4 fragMain(VSOutput input) : SV_Target
 float4 fragMain(VSOutput input) : SV_Target
 {
     float3 N = normalize(input.Normal);
+    //float3 R = N;
+    //float3 V = R;
+
     float3 V = normalize(ubo.camPos.xyz - input.WorldPos);
     float3 R = reflect(-V, N);
 
@@ -131,11 +140,15 @@ float4 fragMain(VSOutput input) : SV_Target
     // Calculate F0 (reflectance at normal incidence)
     // Non-metals: low reflectance (~0.04), Metals: colored reflectance from base color
     float3 F0 = float3(0.04, 0.04, 0.04);   // Dielectric default
+    //float3 F0 = material.baseColorFactor.xyz;
+
     F0 = lerp(F0, albedo, material.metallicFactor); // Lerp to metallic behavior
 
     // Initialize outgoing radiance accumulator
     float3 Lo = float3(0.0, 0.0, 0.0);
-    
+
+    float NdotV = max(dot(N, V), 0.01); // View angle
+
     // === DIRECT LIGHTING LOOP ===
     // Calculate contribution from each light source
     for (int i = 0; i < 4; i++) {
@@ -157,7 +170,6 @@ float4 fragMain(VSOutput input) : SV_Target
         // === BRDF EVALUATION ===
         // Calculate all necessary dot products for BRDF terms
         float NdotL = max(dot(N, L), 0.01); // Lambertian falloff
-        float NdotV = max(dot(N, V), 0.01); // View angle
         float NdotH = max(dot(N, H), 0.0); // Half vector for specular
         float HdotV = max(dot(H, V), 0.0); // For Fresnel calculation
 
@@ -183,17 +195,27 @@ float4 fragMain(VSOutput input) : SV_Target
         Lo += (kD * albedo / PI + specular) * radiance * NdotL;
     }
 
-    // === AMBIENT AND EMISSIVE ===
+    // IBL
+
     float ao = 1.0; // hardcoded for now
     float emissive = 0.0;
+    
+    float3 sampleRadiance = radianceMap.SampleLevel(float3(R.x, R.z, R.y), material.roughnessFactor * ubo.prefilteredCubeMipLevels).xyz * ubo.exposure;
 
-    // Add simple ambient lighting (should be replaced with IBL in production
-    float3 sampleIBL = environmentMap.Sample(float3(input.Normal.x, input.Normal.z, input.Normal.y)).xyz;
-    //float sampleIBL = 1.0;
+    float2 sampleBRDF = brdfLUT.Sample(float2(NdotV, 1.0 - material.roughnessFactor)).xy;
 
-    float3 ambient = sampleIBL * albedo * ao;
+    float3 kS = F0 * sampleBRDF.x + sampleBRDF.y;
 
-    // Combine all lighting contributions
+    float3 specularIBL = sampleRadiance * kS;
+
+    float3 kD = float3(1.0, 1.0, 1.0) - kS;
+    kD *= 1.0 - material.metallicFactor;
+
+    float3 sampleIrradiance = irradianceMap.Sample(float3(input.Normal.x, input.Normal.z, input.Normal.y)).xyz;
+    float3 diffuseIBL = sampleIrradiance * ubo.exposure * albedo;
+
+    float3 ambient = (kD * diffuseIBL + specularIBL) * ao;
+    
     float3 color = ambient + Lo + emissive;
 
     // === HDR TONE MAPPING AND GAMMA CORRECTION ===

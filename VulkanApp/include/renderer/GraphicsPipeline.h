@@ -22,6 +22,11 @@ public:
 	vk::raii::Pipeline& getGraphicsPipeline() { return graphicsPipeline; }
 	vk::raii::PipelineLayout& getPipelineLayout() { return pipelineLayout; }
 	vk::raii::DescriptorSetLayout& getDescriptorSetLayout(uint32_t i) { return descriptorSetLayouts[i]; };
+
+	enum DescriptorSetSlot : uint32_t {
+		Global = 0,		// Set 0 (Camera/UBO)
+		IBL = 1,		// Set 1 (Textures)
+	};
 private:
 	VulkanContext& context;
 	SwapChainManager& swapChainManager;

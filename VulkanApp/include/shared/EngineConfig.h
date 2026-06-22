@@ -15,11 +15,6 @@ namespace EngineConfig {
 	inline constexpr bool PRINT_GPU_PROFILING = true;
 	inline constexpr bool ENABLE_MAILBOX_PRESENT = true;
 
-	enum DescriptorSetSlot : uint32_t {
-		Global = 0,   // Set 0 (Camera/UBO)
-		Mesh = 1, // Set 1 (Textures)
-	};
-
 	inline constexpr int PARTICLE_COUNT = 1024;
 	//inline constexpr int PARTICLE_COUNT = 2048;
 	//inline constexpr int PARTICLE_COUNT = 10240;

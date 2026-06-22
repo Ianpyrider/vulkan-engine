@@ -31,8 +31,8 @@ void ParticleComputePipeline::generateBuffers() {
 	);
 
 	std::default_random_engine rndEngine((unsigned)time(nullptr));
-	std::uniform_real_distribution<float> xyDist(-25.0f, 25.0f);
-	std::uniform_real_distribution<float> zDist(-15.0f, 25.0f);
+	std::uniform_real_distribution<float> xyDist(-40.0f, 40.0f);
+	std::uniform_real_distribution<float> zDist(-20.0f, 35.0f);
 	std::uniform_real_distribution<float> gravityDist(-15.f, -8.f);
 
 	std::vector<Particle> particles(EngineConfig::PARTICLE_COUNT);
