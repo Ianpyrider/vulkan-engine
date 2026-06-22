@@ -13,6 +13,7 @@ struct AllocatedBuffer {
 struct AllocatedImage {
     VkImage image = VK_NULL_HANDLE;
     VmaAllocation allocation = nullptr;
+    vk::Format format = vk::Format::eR8G8B8A8Unorm;  // Doesn't seem like a good choice (probably?) but fine for getting IBL up and running
 };
 
 struct UBO {

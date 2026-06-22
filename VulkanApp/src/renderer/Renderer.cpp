@@ -429,7 +429,7 @@ void Renderer::updateUniformBuffer(uint32_t frameIndex, float totalTime, float d
     //float cameraZ = sin(totalTime * orbitSpeed) * radius;
 
     ubo.view = lookAt(glm::vec3(cameraX, cameraY, cameraZ), center, glm::vec3(0.0f, 0.0f, 1.0f));
-    ubo.proj = glm::perspective(glm::radians(45.0f), static_cast<float>(swapChainManager.getExtent().width) / static_cast<float>(swapChainManager.getExtent().height), 0.1f, 100.0f);
+    ubo.proj = glm::perspective(glm::radians(45.0f), static_cast<float>(swapChainManager.getExtent().width) / static_cast<float>(swapChainManager.getExtent().height), 0.1f, 200.0f);
     ubo.proj[1][1] *= -1;
 
     // Lights
@@ -457,7 +457,7 @@ void Renderer::updateUniformBuffer(uint32_t frameIndex, float totalTime, float d
 
     ubo.exposure = 4.5f;
     ubo.gamma = 2.2f;
-    ubo.prefilteredCubeMipLevels = 1.0f;
+    ubo.prefilteredCubeMipLevels = 8.0f;
     ubo.scaleIBLAmbient = 1.0f;
 
     memcpy(uniformBuffers[frameIndex].info.pMappedData, &ubo, sizeof(ubo));
@@ -466,7 +466,7 @@ void Renderer::updateUniformBuffer(uint32_t frameIndex, float totalTime, float d
 void Renderer::createDescriptorPool() {
     std::array<vk::DescriptorPoolSize, 2> poolSizes{{
         {.type = vk::DescriptorType::eUniformBuffer, .descriptorCount = EngineConfig::MAX_FRAMES_IN_FLIGHT },
-        {.type = vk::DescriptorType::eCombinedImageSampler, .descriptorCount = EngineConfig::MAX_FRAMES_IN_FLIGHT }
+        {.type = vk::DescriptorType::eCombinedImageSampler, .descriptorCount = EngineConfig::MAX_FRAMES_IN_FLIGHT * 3 }
     }};
 
     vk::DescriptorPoolCreateInfo poolInfo{
@@ -483,7 +483,7 @@ void Renderer::createDescriptorSets() {
     std::vector<vk::DescriptorSetLayout> layouts;
     layouts.reserve(EngineConfig::MAX_FRAMES_IN_FLIGHT);
     for (uint32_t i = 0; i < EngineConfig::MAX_FRAMES_IN_FLIGHT; i++) {
-        layouts.push_back(*pbrPipeline.getDescriptorSetLayout(EngineConfig::DescriptorSetSlot::Global));
+        layouts.push_back(*pbrPipeline.getDescriptorSetLayout(GraphicsPipeline::DescriptorSetSlot::Global));
     }
 
     vk::DescriptorSetAllocateInfo allocInfo{
@@ -515,5 +515,5 @@ void Renderer::createDescriptorSets() {
 }
 
 void Renderer::loadMeshes() {
-    sceneObjects.push_back(std::make_unique<Mesh>("assets/models/tree.glb", context, swapChainManager, graphicsPipeline, descriptorPool));
+    sceneObjects.push_back(std::make_unique<Mesh>("assets/models/treemetal.glb", context, swapChainManager, graphicsPipeline, descriptorPool));
 }

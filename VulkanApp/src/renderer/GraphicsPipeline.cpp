@@ -25,29 +25,31 @@ void GraphicsPipeline::createDescriptorSetLayouts() {
 
     // Global (UBO) Layout
 
-    std::array<vk::DescriptorSetLayoutBinding, 1> bindings{ {
+    std::array<vk::DescriptorSetLayoutBinding, 1> uboBindings{ {
         {.binding = 0, .descriptorType = vk::DescriptorType::eUniformBuffer, .descriptorCount = 1, .stageFlags = vk::ShaderStageFlagBits::eVertex | vk::ShaderStageFlagBits::eFragment}
     } };
 
-    vk::DescriptorSetLayoutCreateInfo layoutInfo{ 
-        .bindingCount = static_cast<uint32_t>(bindings.size()), 
-        .pBindings = bindings.data()
+    vk::DescriptorSetLayoutCreateInfo uboLayoutInfo{ 
+        .bindingCount = static_cast<uint32_t>(uboBindings.size()), 
+        .pBindings = uboBindings.data()
     };
 
-    descriptorSetLayouts.push_back(vk::raii::DescriptorSetLayout(context.getDevice(), layoutInfo));
+    descriptorSetLayouts.push_back(vk::raii::DescriptorSetLayout(context.getDevice(), uboLayoutInfo));
 
-    // Mesh Layout w/ Texture
+    // IBL Info Layout
 
-    std::array<vk::DescriptorSetLayoutBinding, 1> bindings2{ {
-        {.binding = 0, .descriptorType = vk::DescriptorType::eCombinedImageSampler, .descriptorCount = 1, .stageFlags = vk::ShaderStageFlagBits::eFragment }
-    } };
+    std::array<vk::DescriptorSetLayoutBinding, 3> iblBindings{ {
+        { .binding = 0, .descriptorType = vk::DescriptorType::eCombinedImageSampler, .descriptorCount = 1, .stageFlags = vk::ShaderStageFlagBits::eFragment },
+        { .binding = 1, .descriptorType = vk::DescriptorType::eCombinedImageSampler, .descriptorCount = 1, .stageFlags = vk::ShaderStageFlagBits::eFragment },
+        { .binding = 2, .descriptorType = vk::DescriptorType::eCombinedImageSampler, .descriptorCount = 1, .stageFlags = vk::ShaderStageFlagBits::eFragment },
+    }};
 
-    vk::DescriptorSetLayoutCreateInfo layoutInfo2{
-        .bindingCount = static_cast<uint32_t>(bindings2.size()),
-        .pBindings = bindings2.data()
+    vk::DescriptorSetLayoutCreateInfo iblLayoutInfo{
+        .bindingCount = static_cast<uint32_t>(iblBindings.size()),
+        .pBindings = iblBindings.data()
     };
 
-    descriptorSetLayouts.push_back(vk::raii::DescriptorSetLayout(context.getDevice(), layoutInfo2));
+    descriptorSetLayouts.push_back(vk::raii::DescriptorSetLayout(context.getDevice(), iblLayoutInfo));
 }
 
 void GraphicsPipeline::createGraphicsPipeline() {

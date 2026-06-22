@@ -26,7 +26,6 @@ public:
 
 	AllocatedBuffer& getVertexBuffer() { return vertexBuffer; }
 	AllocatedBuffer& getIndexBuffer() { return indexBuffer; }
-	AllocatedImage& getTextureImage() { return textureImage; }
 	std::vector<vk::raii::DescriptorSet>& getDescriptorSets() { return descriptorSets; }
 
 	uint32_t getIndexCount() { return indices.size(); };
@@ -42,20 +41,28 @@ private:
 	std::vector<Vertex> vertices;
 	std::vector<uint16_t> indices;
 
-	AllocatedImage textureImage;
-	vk::raii::ImageView textureImageView = nullptr;
-	vk::raii::Sampler textureSampler = nullptr;
+	AllocatedImage irradianceTexture;
+	vk::raii::ImageView irradianceImageView = nullptr;
+	vk::raii::Sampler irradianceSampler = nullptr;
+
+	AllocatedImage radianceTexture;
+	vk::raii::ImageView radianceImageView = nullptr;
+	vk::raii::Sampler radianceSampler = nullptr;
+
+	AllocatedImage brdfTexture;
+	vk::raii::ImageView brdfImageView = nullptr;
+	vk::raii::Sampler brdfSampler = nullptr;
+
 	std::vector<vk::raii::DescriptorSet> descriptorSets;
-	vk::Format textureFormat = vk::Format::eR8G8B8A8Unorm;
 
 	PushConstantBlock pbrPushConstants;
 
 	AllocatedBuffer createBuffer(const void* data, size_t bufferSize, VkBufferUsageFlags usage);
-	AllocatedImage createImage(unsigned char* pixels, int texWidth, int texHeight, int texChannels);
-	AllocatedImage createImageFromKTXFile(std::string filename);
+	AllocatedImage createCubeImageFromKTX(std::string filename);
+	AllocatedImage create2DImageFromKTX(std::string filename);
 
-	void createImageView();
-	void createTextureSampler();
+	void createImageViews();
+	void createTextureSamplers();
 
 	void createMeshDescriptorSet(vk::raii::DescriptorPool& descriptorPool);
 

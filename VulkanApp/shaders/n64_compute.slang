@@ -41,8 +41,5 @@ void compMain(uint3 threadId: SV_DispatchThreadID) {
 
     float3 ditheredColor = inColor + (bayerScalar / colorBitsPerChannel);
 
-    ditheredColor = pow(ditheredColor, float3(1.0 / 1.3)); // Convert back to sRGB
-
-    //outputImage[index] = float4(floor(ditheredColor * colorBitsPerChannel) / colorBitsPerChannel, 1.0);
-    outputImage[index] = inputImage.Load(int3(index.x, index.y, 0));
+    outputImage[index] = float4(floor(ditheredColor * colorBitsPerChannel) / colorBitsPerChannel, 1.0);
 }

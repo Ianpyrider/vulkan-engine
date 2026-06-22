@@ -1,6 +1,7 @@
 #include "resources/Mesh.h"
 
 #include <iostream>
+#include <glm/common.hpp>
 
 #include "shared/EngineConfig.h"
 #include "core/VulkanContext.h"
@@ -20,10 +21,6 @@ Mesh::Mesh(
     swapChainManager(swapChainManager),
     graphicsPipeline(graphicsPipeline)
 {
-
-    loadFromGltf(filepath);
-    textureImage = createImageFromKTXFile("assets/textures/forest_irradiance.ktx");
-
     /*
     vertices = {
         // Position                 // Color                    // Normal                  // UV
@@ -59,24 +56,30 @@ Mesh::Mesh(
         4, 5, 1,
         1, 0, 4
     };
-
     */
+
+
+    loadFromGltf(filepath);
 
     vertexBuffer = createBuffer(vertices.data(), sizeof(Vertex) * vertices.size(), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
     indexBuffer = createBuffer(indices.data(), sizeof(uint16_t) * indices.size(), VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
 
-    //std::vector<unsigned char> solidPixel = { static_cast<unsigned char>(255.0), static_cast<unsigned char>(255.0), static_cast<unsigned char>(0.0), static_cast<unsigned char>(255.0) };
-    //textureImage = createImage(solidPixel.data(), 1, 1, 4, 4, vk::Format::eR8G8B8A8Unorm);
+    irradianceTexture = createCubeImageFromKTX("assets/textures/forest_irradiance.ktx");
+    radianceTexture = createCubeImageFromKTX("assets/textures/forest_radiance.ktx");
+    brdfTexture = create2DImageFromKTX("assets/textures/brdf_lut.ktx");
 
-    createImageView();
-    createTextureSampler();
+    createImageViews();
+    createTextureSamplers();
+
     createMeshDescriptorSet(descriptorPool);
 }
 
 Mesh::~Mesh() {
     vmaDestroyBuffer(context.getVmaAllocator(), vertexBuffer.buffer, vertexBuffer.allocation);
     vmaDestroyBuffer(context.getVmaAllocator(), indexBuffer.buffer, indexBuffer.allocation);
-    context.destroyVmaImage(textureImage.image, textureImage.allocation);
+    context.destroyVmaImage(irradianceTexture.image, irradianceTexture.allocation);
+    context.destroyVmaImage(radianceTexture.image, radianceTexture.allocation);
+    context.destroyVmaImage(brdfTexture.image, brdfTexture.allocation);
 }
 
 AllocatedBuffer Mesh::createBuffer(const void* data, size_t bufferSize, VkBufferUsageFlags usage) {
@@ -103,7 +106,7 @@ AllocatedBuffer Mesh::createBuffer(const void* data, size_t bufferSize, VkBuffer
     return outputBuffer;
 }
 
-AllocatedImage Mesh::createImageFromKTXFile(std::string filename) {
+AllocatedImage Mesh::createCubeImageFromKTX(std::string filename) {
     // Load KTX2 texture instead of using stb_image
     ktxTexture* kTexture;
     KTX_error_code result = ktxTexture_CreateFromNamedFile(
@@ -119,10 +122,9 @@ AllocatedImage Mesh::createImageFromKTXFile(std::string filename) {
     uint32_t texHeight = kTexture->baseHeight;
     ktx_size_t imageSize = ktxTexture_GetDataSize(kTexture);
     ktx_uint8_t* ktxTextureData = ktxTexture_GetData(kTexture);
-    
-    textureFormat = static_cast<vk::Format>(ktxTexture_GetVkFormat(kTexture));
 
     // Create Image!
+
     AllocatedBuffer stagingBuffer = context.createVmaBuffer(
         imageSize,
         VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
@@ -133,12 +135,14 @@ AllocatedImage Mesh::createImageFromKTXFile(std::string filename) {
     void* data = stagingBuffer.info.pMappedData;
     memcpy(data, ktxTextureData, imageSize);
 
+    vk::Format textureFormat = static_cast<vk::Format>(ktxTexture_GetVkFormat(kTexture));
+
     vk::ImageCreateInfo imageInfo{
         .imageType = vk::ImageType::e2D,
         .format = textureFormat,
         .extent = {static_cast<uint32_t>(texWidth), static_cast<uint32_t>(texHeight), 1},
-        .mipLevels = 1,
-        .arrayLayers = 6,
+        .mipLevels = kTexture->numLevels,
+        .arrayLayers = kTexture->numFaces,
         .samples = vk::SampleCountFlagBits::e1,
         .tiling = vk::ImageTiling::eOptimal,
         .usage = vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled,
@@ -153,6 +157,7 @@ AllocatedImage Mesh::createImageFromKTXFile(std::string filename) {
     allocCreateInfo.priority = 1.0f;
 
     AllocatedImage image = context.createVmaImage(imageInfo, allocCreateInfo);
+    image.format = textureFormat;
 
     vk::raii::CommandBuffer commandBuffer = context.beginSingleTimeCommands();
 
@@ -166,30 +171,37 @@ AllocatedImage Mesh::createImageFromKTXFile(std::string filename) {
         vk::PipelineStageFlagBits2::eTransfer,          // dstStage
         vk::ImageAspectFlagBits::eColor,
         commandBuffer,
-        6
+        kTexture->numFaces,
+        kTexture->numLevels
     );
 
     std::vector<vk::BufferImageCopy> copyRegions;
     copyRegions.reserve(6);
 
-    for (int i = 0; i < 6; i++) {
-        size_t offset;
-        ktxTexture_GetImageOffset(kTexture, 0, 0, i, &offset);
+    for (uint32_t mip_i = 0; mip_i < kTexture->numLevels; mip_i++) {
+        for (uint32_t face_i = 0; face_i < kTexture->numFaces; face_i++) {
+            size_t offset;
+            ktxTexture_GetImageOffset(kTexture, mip_i, 0, face_i, &offset);
 
-        vk::BufferImageCopy region{};
-        region.bufferOffset = offset;
-        region.bufferRowLength = 0;
-        region.bufferImageHeight = 0;
+            vk::BufferImageCopy region{};
+            region.bufferOffset = offset;
+            region.bufferRowLength = 0;
+            region.bufferImageHeight = 0;
 
-        region.imageSubresource.aspectMask = vk::ImageAspectFlagBits::eColor;
-        region.imageSubresource.mipLevel = 0;
-        region.imageSubresource.baseArrayLayer = static_cast<uint32_t>(i);
-        region.imageSubresource.layerCount = 1;
+            region.imageSubresource.aspectMask = vk::ImageAspectFlagBits::eColor;
+            region.imageSubresource.mipLevel = mip_i;
+            region.imageSubresource.baseArrayLayer = static_cast<uint32_t>(face_i);
+            region.imageSubresource.layerCount = 1;
 
-        region.imageOffset = vk::Offset3D{ 0, 0, 0 };
-        region.imageExtent = vk::Extent3D{ static_cast<uint32_t>(texWidth), static_cast<uint32_t>(texHeight), 1 };
+            region.imageOffset = vk::Offset3D{ 0, 0, 0 };
+            region.imageExtent = vk::Extent3D{
+                glm::max<uint32_t>(1u, texWidth >> mip_i),
+                glm::max<uint32_t>(1u, texHeight >> mip_i),
+                1
+            };
 
-        copyRegions.push_back(region);
+            copyRegions.push_back(region);
+        }
     }
 
     commandBuffer.copyBufferToImage(stagingBuffer.buffer, image.image, vk::ImageLayout::eTransferDstOptimal, copyRegions);
@@ -204,7 +216,8 @@ AllocatedImage Mesh::createImageFromKTXFile(std::string filename) {
         vk::PipelineStageFlagBits2::eFragmentShader,          // dstStage
         vk::ImageAspectFlagBits::eColor,
         commandBuffer,
-        6
+        kTexture->numFaces,
+        kTexture->numLevels
     );
 
     context.endSingleTimeCommands(std::move(commandBuffer));
@@ -215,14 +228,22 @@ AllocatedImage Mesh::createImageFromKTXFile(std::string filename) {
     return image;
 }
 
-// TODO: Consolidate this with ktx image, ideally make a general staging function in Context? Ignoring DRY for clarity before cleanup
-AllocatedImage Mesh::createImage(unsigned char* pixels, int texWidth, int texHeight, int texChannels) {
-    vk::DeviceSize imageSize = texWidth * texHeight * texChannels;
+// TODO: Ok now this can definitely be combined with cube function above, but gotta think about SOC
+AllocatedImage Mesh::create2DImageFromKTX(std::string filename) {
+    ktxTexture* kTexture;
+    KTX_error_code result = ktxTexture_CreateFromNamedFile(
+        filename.c_str(),
+        KTX_TEXTURE_CREATE_LOAD_IMAGE_DATA_BIT,
+        &kTexture);
 
-    if (!pixels)
-    {
-        throw std::runtime_error("failed to load texture image!");
+    if (result != KTX_SUCCESS) {
+        throw std::runtime_error("failed to load ktx texture image!");
     }
+
+    uint32_t texWidth = kTexture->baseWidth;
+    uint32_t texHeight = kTexture->baseHeight;
+    ktx_size_t imageSize = ktxTexture_GetDataSize(kTexture);
+    ktx_uint8_t* ktxTextureData = ktxTexture_GetData(kTexture);
 
     AllocatedBuffer stagingBuffer = context.createVmaBuffer(
         imageSize,
@@ -232,7 +253,9 @@ AllocatedImage Mesh::createImage(unsigned char* pixels, int texWidth, int texHei
     );
 
     void* data = stagingBuffer.info.pMappedData;
-    memcpy(data, pixels, imageSize);
+    memcpy(data, ktxTextureData, imageSize);
+
+    vk::Format textureFormat = static_cast<vk::Format>(ktxTexture_GetVkFormat(kTexture));
 
     vk::ImageCreateInfo imageInfo{
         .imageType = vk::ImageType::e2D,
@@ -252,6 +275,7 @@ AllocatedImage Mesh::createImage(unsigned char* pixels, int texWidth, int texHei
     allocCreateInfo.priority = 1.0f;
 
     AllocatedImage image = context.createVmaImage(imageInfo, allocCreateInfo);
+    image.format = textureFormat;
 
     vk::raii::CommandBuffer commandBuffer = context.beginSingleTimeCommands();
 
@@ -297,28 +321,67 @@ AllocatedImage Mesh::createImage(unsigned char* pixels, int texWidth, int texHei
     return image;
 }
 
-void Mesh::createImageView() {
-    vk::ImageViewCreateInfo viewInfo{
-        .image = textureImage.image,
-        .viewType = vk::ImageViewType::eCube,
-        .format = textureFormat,
-        .subresourceRange = vk::ImageSubresourceRange({ vk::ImageAspectFlagBits::eColor, 0, 1, 0, 6}) // Last is layercount
+void Mesh::createImageViews() {
+    vk::ImageViewCreateInfo irradianceViewInfo{
+    .image = irradianceTexture.image,
+    .viewType = vk::ImageViewType::eCube,
+    .format = irradianceTexture.format,
+    .subresourceRange =
+        vk::ImageSubresourceRange{
+            .aspectMask = vk::ImageAspectFlagBits::eColor,
+            .baseMipLevel = 0,
+            .levelCount = 1,
+            .baseArrayLayer = 0,
+            .layerCount = 6
+        }
     };
 
-    textureImageView = vk::raii::ImageView(context.getDevice(), viewInfo);
+    irradianceImageView = vk::raii::ImageView(context.getDevice(), irradianceViewInfo);
+
+    vk::ImageViewCreateInfo radianceViewInfo{
+    .image = radianceTexture.image,
+    .viewType = vk::ImageViewType::eCube,
+    .format = radianceTexture.format,
+    .subresourceRange = 
+        vk::ImageSubresourceRange{
+            .aspectMask = vk::ImageAspectFlagBits::eColor,
+            .baseMipLevel = 0,
+            .levelCount = 9,
+            .baseArrayLayer = 0,
+            .layerCount = 6
+        }
+    };
+
+    radianceImageView = vk::raii::ImageView(context.getDevice(), radianceViewInfo);
+
+    vk::ImageViewCreateInfo brdfViewInfo{
+    .image = brdfTexture.image,
+    .viewType = vk::ImageViewType::e2D,
+    .format = brdfTexture.format,
+    .subresourceRange =
+        vk::ImageSubresourceRange{
+            .aspectMask = vk::ImageAspectFlagBits::eColor,
+            .baseMipLevel = 0,
+            .levelCount = 1,
+            .baseArrayLayer = 0,
+            .layerCount = 1
+        }
+    };
+
+    brdfImageView = vk::raii::ImageView(context.getDevice(), brdfViewInfo);
 }
 
-void Mesh::createTextureSampler() {
+void Mesh::createTextureSamplers() {
     vk::PhysicalDeviceProperties properties = context.getPhysicalDevice().getProperties();
 
     vk::SamplerCreateInfo samplerInfo{
         .magFilter = vk::Filter::eLinear,
         .minFilter = vk::Filter::eLinear,
         .mipmapMode = vk::SamplerMipmapMode::eLinear,
-        .addressModeU = vk::SamplerAddressMode::eRepeat,
-        .addressModeV = vk::SamplerAddressMode::eRepeat,
-        .addressModeW = vk::SamplerAddressMode::eRepeat,
-        .anisotropyEnable = vk::True,
+        .addressModeU = vk::SamplerAddressMode::eClampToEdge,
+        .addressModeV = vk::SamplerAddressMode::eClampToEdge,
+        .addressModeW = vk::SamplerAddressMode::eClampToEdge,
+        .anisotropyEnable = vk::False,
         .maxAnisotropy = properties.limits.maxSamplerAnisotropy,
         .compareEnable = vk::False,
         .compareOp = vk::CompareOp::eAlways
@@ -334,14 +397,18 @@ void Mesh::createTextureSampler() {
     samplerInfo.minLod = 0.0f;
     samplerInfo.maxLod = 0.0f;
 
-    textureSampler = vk::raii::Sampler(context.getDevice(), samplerInfo);
+    irradianceSampler = vk::raii::Sampler(context.getDevice(), samplerInfo);
+    brdfSampler = vk::raii::Sampler(context.getDevice(), samplerInfo);
+
+    samplerInfo.maxLod = 9.0f;
+    radianceSampler = vk::raii::Sampler(context.getDevice(), samplerInfo);
 }
 
 void Mesh::createMeshDescriptorSet(vk::raii::DescriptorPool& descriptorPool) {
     std::vector<vk::DescriptorSetLayout> layouts;
     layouts.reserve(EngineConfig::MAX_FRAMES_IN_FLIGHT);
     for (uint32_t i = 0; i < EngineConfig::MAX_FRAMES_IN_FLIGHT; i++) {
-        layouts.push_back(*graphicsPipeline.getDescriptorSetLayout(EngineConfig::DescriptorSetSlot::Mesh));
+        layouts.push_back(*graphicsPipeline.getDescriptorSetLayout(GraphicsPipeline::DescriptorSetSlot::IBL));
     }
 
     vk::DescriptorSetAllocateInfo allocInfo{
@@ -353,20 +420,29 @@ void Mesh::createMeshDescriptorSet(vk::raii::DescriptorPool& descriptorPool) {
     descriptorSets = vk::raii::DescriptorSets(context.getDevice(), allocInfo);
 
     for (uint32_t i = 0; i < EngineConfig::MAX_FRAMES_IN_FLIGHT; i++) {
-        vk::DescriptorImageInfo imageInfo{ 
-            .sampler = textureSampler, 
-            .imageView = textureImageView, 
+        vk::DescriptorImageInfo irradianceImageInfo{ 
+            .sampler = irradianceSampler, 
+            .imageView = irradianceImageView, 
             .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal
         };
 
-        vk::WriteDescriptorSet descriptorWrite{
-            .dstSet = *descriptorSets[i],
-            .dstBinding = 0,
-            .dstArrayElement = 0,
-            .descriptorCount = 1,
-            .descriptorType = vk::DescriptorType::eCombinedImageSampler,
-            .pImageInfo = &imageInfo
+        vk::DescriptorImageInfo radianceImageInfo{
+            .sampler = radianceSampler,
+            .imageView = radianceImageView,
+            .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal
         };
+
+        vk::DescriptorImageInfo brdfImageInfo{
+            .sampler = brdfSampler,
+            .imageView = brdfImageView,
+            .imageLayout = vk::ImageLayout::eShaderReadOnlyOptimal
+        };
+
+        std::array<vk::WriteDescriptorSet, 3> descriptorWrite{ {
+            { .dstSet = *descriptorSets[i],.dstBinding = 0, .dstArrayElement = 0, .descriptorCount = 1, .descriptorType = vk::DescriptorType::eCombinedImageSampler, .pImageInfo = &irradianceImageInfo},
+            { .dstSet = *descriptorSets[i],.dstBinding = 1, .dstArrayElement = 0, .descriptorCount = 1, .descriptorType = vk::DescriptorType::eCombinedImageSampler, .pImageInfo = &radianceImageInfo},
+            {.dstSet = *descriptorSets[i],.dstBinding = 2, .dstArrayElement = 0, .descriptorCount = 1, .descriptorType = vk::DescriptorType::eCombinedImageSampler, .pImageInfo = &brdfImageInfo}
+        } };
 
         context.getDevice().updateDescriptorSets(descriptorWrite, nullptr);
     }
@@ -597,9 +673,6 @@ void Mesh::setMaterial(const tinygltf::Material& gltfMaterial) {
     );
     pbrPushConstants.metallicFactor = static_cast<float>(gltfMaterial.pbrMetallicRoughness.metallicFactor);
     pbrPushConstants.roughnessFactor = static_cast<float>(gltfMaterial.pbrMetallicRoughness.roughnessFactor);
-
-    pbrPushConstants.metallicFactor = 1.f;
-    pbrPushConstants.roughnessFactor = 0.5f;
 
     pbrPushConstants.baseColorTextureSet = gltfMaterial.pbrMetallicRoughness.baseColorTexture.index > -1
         ? gltfMaterial.pbrMetallicRoughness.baseColorTexture.texCoord : -1;

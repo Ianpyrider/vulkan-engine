@@ -441,7 +441,8 @@ void VulkanContext::transitionImageLayout(
     vk::PipelineStageFlags2 dstStageMask,
     vk::ImageAspectFlags imageAspectFlags,
     vk::raii::CommandBuffer& curCommandBuffer,
-    uint32_t layerCount
+    uint32_t layerCount,
+    uint32_t mipLevels
 ) {
     vk::ImageMemoryBarrier2 barrier = {
         .srcStageMask = srcStageMask,
@@ -456,7 +457,7 @@ void VulkanContext::transitionImageLayout(
         .subresourceRange = {
             .aspectMask = imageAspectFlags,
             .baseMipLevel = 0,
-            .levelCount = 1,
+            .levelCount = mipLevels,
             .baseArrayLayer = 0,
             .layerCount = layerCount
         }

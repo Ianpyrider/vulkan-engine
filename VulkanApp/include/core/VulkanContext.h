@@ -40,7 +40,8 @@ public:
         vk::PipelineStageFlags2 dstStageMask,
         vk::ImageAspectFlags imageAspectFlags,
         vk::raii::CommandBuffer& curCommandBuffer,
-        uint32_t layerCount = 1
+        uint32_t layerCount = 1,
+        uint32_t mipLevels = 1
     );
 private:
     void createInstance();
